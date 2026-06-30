@@ -1431,8 +1431,18 @@ select option { background: var(--surface2); color: var(--text); }
 const DEMO_MODE = false;
 
 // ═══════════════════════════════════════════════
-//  STATE
+//  CONFIG FIREBASE
 // ═══════════════════════════════════════════════
+// Pour déployer sans saisie manuelle à chaque connexion :
+// remplis les 3 champs ci-dessous avec les valeurs de ta console Firebase
+// (icône ⚙️ → Paramètres du projet → tes applications Web → firebaseConfig).
+// Laisse les chaînes vides pour conserver l'écran de saisie manuelle.
+const FIREBASE_CONFIG = {
+  apiKey:      '',   // ex: 'AIzaSy...'
+  databaseURL: '',   // ex: 'https://mon-projet-default-rtdb.europe-west1.firebasedatabase.app'
+  projectId:   '',   // ex: 'mon-projet-demo'
+};
+
 let db = null;
 let useLocal = false;
 let currentRole = 'spectateur';
@@ -1484,6 +1494,27 @@ function connectFirebase() {
 function useLocalStorage() { useLocal = true; localStorage.setItem('fb_config', 'local'); startApp(); }
 
 function tryAutoConnect() {
+  // 1 — Config codée en dur dans le fichier (déploiement démo/prod)
+  if (FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL && FIREBASE_CONFIG.projectId) {
+    try {
+      if (!firebase.apps.length) firebase.initializeApp({
+        apiKey:      FIREBASE_CONFIG.apiKey,
+        databaseURL: FIREBASE_CONFIG.databaseURL,
+        projectId:   FIREBASE_CONFIG.projectId
+      });
+      db = firebase.database();
+      // Mémorise aussi dans localStorage pour cohérence
+      localStorage.setItem('fb_config', JSON.stringify({
+        apiKey:    FIREBASE_CONFIG.apiKey,
+        dbUrl:     FIREBASE_CONFIG.databaseURL,
+        projectId: FIREBASE_CONFIG.projectId
+      }));
+      startApp();
+      return;
+    } catch(e) { console.warn('FIREBASE_CONFIG invalide :', e.message); }
+  }
+
+  // 2 — Config sauvegardée dans localStorage (saisie manuelle préalable)
   const saved = localStorage.getItem('fb_config');
   if (!saved) { showScreen('firebase'); return; }
   if (saved === 'local') { useLocal = true; startApp(); return; }
