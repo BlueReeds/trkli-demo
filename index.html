@@ -1,0 +1,3569 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi de Course en Direct</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<!-- SheetJS for Excel import -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ── TOKENS ── */
+:root {
+  --primary: #FC4C02;
+  --primary-hover: #E04400;
+  --primary-dim: rgba(252,76,2,0.15);
+  --primary-border: rgba(252,76,2,0.3);
+  --bg: #121212;
+  --surface: #1E1E1E;
+  --surface2: #2A2A2A;
+  --surface3: #333333;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.05);
+  --text: #FFFFFF;
+  --text2: #A1A1AA;
+  --text3: #71717A;
+  --success: #22C55E;
+  --success-dim: rgba(34,197,94,0.15);
+  --warning: #F59E0B;
+  --warning-dim: rgba(245,158,11,0.15);
+  --error: #EF4444;
+  --error-dim: rgba(239,68,68,0.15);
+  --info: #3B82F6;
+  --info-dim: rgba(59,130,246,0.15);
+  --r-card: 16px;
+  --r-btn: 12px;
+  --r-input: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--primary); }
+strong { font-weight: 600; }
+code { font-family: monospace; font-size: 12px; background: var(--surface3); padding: 1px 5px; border-radius: 5px; color: var(--text2); }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── FIREBASE / LOGIN SCREENS ── */
+.config-screen, .login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--bg); padding: 20px;
+}
+.config-card, .login-card {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+  width: 100%; padding: 36px;
+}
+.config-card { max-width: 560px; }
+.login-card { max-width: 380px; padding: 40px 36px; }
+
+.config-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.config-sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; line-height: 1.7; }
+.step-block { margin-bottom: 20px; }
+.step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; background: var(--primary); color: white;
+  border-radius: 50%; font-size: 11px; font-weight: 700; margin-right: 8px; flex-shrink: 0;
+}
+.step-title { font-size: 14px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; color: var(--text); }
+.step-body { font-size: 13px; color: var(--text2); margin-left: 32px; line-height: 1.7; }
+.code-block {
+  background: var(--bg); border-radius: 8px; padding: 12px 14px;
+  font-family: monospace; font-size: 12px; margin: 8px 0;
+  border: 1px solid var(--border); color: var(--text2);
+}
+.or-line { text-align: center; color: var(--text3); font-size: 12px; margin: 16px 0; }
+.config-error { color: var(--error); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px; }
+
+/* LOGIN */
+.login-logo {
+  width: 60px; height: 60px; background: var(--primary);
+  border-radius: 18px; font-size: 28px; display: flex;
+  align-items: center; justify-content: center; margin: 0 auto 20px;
+  box-shadow: 0 8px 24px var(--primary-dim);
+}
+.login-title { text-align: center; font-size: 22px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.login-sub { text-align: center; font-size: 13px; color: var(--text3); margin-bottom: 28px; }
+.login-error { color: var(--error); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px; }
+.login-hint { font-size: 12px; color: var(--text3); text-align: center; margin-top: 14px; line-height: 1.6; }
+
+.role-btns { display: flex; gap: 8px; margin-bottom: 20px; }
+.role-btn {
+  flex: 1; padding: 10px 6px; border-radius: var(--r-btn);
+  border: 1.5px solid var(--border); background: var(--surface2);
+  font-size: 12px; font-weight: 500; cursor: pointer; text-align: center;
+  transition: all 0.15s; color: var(--text2); font-family: inherit;
+}
+.role-btn.active {
+  border-color: var(--primary); background: var(--primary-dim);
+  color: var(--primary); font-weight: 600;
+}
+.role-btn:hover:not(.active) { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+
+/* ── INPUTS ── */
+.login-input, .config-input, .form-input, .pwd-input, .filter-select, .search-input {
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: var(--r-input); color: var(--text);
+  font-family: inherit; font-size: 14px; transition: border-color 0.15s;
+}
+.login-input { width: 100%; padding: 12px 14px; margin-bottom: 14px; letter-spacing: 2px; text-align: center; }
+.config-input { width: 100%; padding: 10px 12px; margin-bottom: 10px; font-family: monospace; }
+.form-input { padding: 9px 12px; width: 100%; }
+.pwd-input { flex: 1; padding: 9px 12px; min-width: 120px; }
+.filter-select { padding: 7px 11px; cursor: pointer; }
+.search-input { padding: 7px 11px; flex: 1; min-width: 120px; }
+
+input::placeholder, textarea::placeholder { color: var(--text3); }
+select option { background: var(--surface2); color: var(--text); }
+.login-input:focus, .config-input:focus, .form-input:focus,
+.pwd-input:focus, .filter-select:focus, .search-input:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim);
+}
+
+/* ── BUTTONS ── */
+.btn, .config-btn, .login-btn {
+  padding: 9px 18px; border-radius: var(--r-btn);
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  transition: all 0.15s; border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text2);
+}
+.btn:hover { background: var(--surface3); color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+.config-btn, .login-btn, .btn-primary {
+  background: var(--primary); color: white; border-color: var(--primary);
+  font-weight: 600; font-size: 14px;
+  box-shadow: 0 4px 16px rgba(252,76,2,0.3);
+}
+.config-btn { width: 100%; padding: 13px; justify-content: center; margin-top: 6px; }
+.login-btn { width: 100%; padding: 13px; justify-content: center; }
+.btn-primary { padding: 10px 24px; }
+.config-btn:hover, .login-btn:hover, .btn-primary:hover {
+  background: var(--primary-hover); box-shadow: 0 4px 20px rgba(252,76,2,0.45);
+  transform: translateY(-1px);
+}
+
+.btn-danger { color: var(--error); border-color: rgba(239,68,68,0.25); background: var(--surface2); }
+.btn-danger:hover { background: var(--error-dim); color: var(--error); border-color: rgba(239,68,68,0.4); }
+
+.btn-green { background: var(--success); color: white; border-color: var(--success); font-weight: 600; }
+.btn-green:hover { background: #16a34a; box-shadow: 0 4px 14px rgba(34,197,94,0.35); transform: translateY(-1px); }
+
+/* ── APP SHELL ── */
+.app { display: none; }
+
+.header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 12px 20px; display: flex; align-items: center;
+  justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  position: sticky; top: 0; z-index: 50;
+  box-shadow: 0 1px 20px rgba(0,0,0,0.4);
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 36px; height: 36px; background: var(--primary);
+  border-radius: 10px; display: flex; align-items: center;
+  justify-content: center; font-size: 18px;
+  box-shadow: 0 4px 12px var(--primary-dim);
+}
+.race-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.race-subtitle { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+
+.role-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; }
+.role-badge.admin { background: rgba(34,197,94,0.15); color: var(--success); border: 1px solid rgba(34,197,94,0.25); }
+.role-badge.benevole { background: rgba(59,130,246,0.15); color: var(--info); border: 1px solid rgba(59,130,246,0.25); }
+.role-badge.spectateur { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+
+.logout-btn {
+  background: none; border: none; font-size: 12px; color: var(--text3);
+  cursor: pointer; padding: 5px 10px; border-radius: 8px; font-family: inherit;
+  transition: all 0.15s;
+}
+.logout-btn:hover { background: var(--surface2); color: var(--text); }
+
+.live-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+  background: rgba(252,76,2,0.12); color: var(--primary);
+  border: 1px solid var(--primary-border); border-radius: 20px; font-size: 11px; font-weight: 700;
+}
+.live-dot { width: 7px; height: 7px; background: var(--primary); border-radius: 50%; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+
+/* ── TABS ── */
+.tabs {
+  display: flex; background: var(--surface);
+  border-bottom: 1px solid var(--border); overflow-x: auto;
+}
+.tabs::-webkit-scrollbar { height: 0; }
+.tab {
+  padding: 13px 22px; font-size: 13px; font-weight: 500;
+  border: none; background: transparent; color: var(--text3);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s; font-family: inherit;
+}
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.tab:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.03); }
+
+/* ── PANELS ── */
+.panel { display: none; padding: 20px; max-width: 920px; margin: 0 auto; }
+.panel.active { display: block; }
+
+/* ── STAT CARDS ── */
+.stat-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-card {
+  flex: 1; min-width: 90px; background: var(--surface);
+  border-radius: var(--r-card); padding: 16px 14px; text-align: center;
+  border: 1px solid var(--border); position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--primary), transparent);
+}
+.stat-val { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.stat-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+
+/* ── FILTER BAR ── */
+.filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+
+/* ── TABLES ── */
+.table-wrap {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); overflow: hidden; overflow-x: auto;
+}
+.ranking-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+.ranking-table th {
+  text-align: left; padding: 10px 14px; font-size: 10px; font-weight: 700;
+  color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.ranking-table td { padding: 10px 14px; border-bottom: 1px solid var(--border2); color: var(--text); }
+.ranking-table tr:last-child td { border-bottom: none; }
+.ranking-table tr:hover td { background: rgba(255,255,255,0.025); cursor: pointer; }
+
+.rank-num { font-weight: 700; font-size: 13px; color: var(--text3); }
+.rank-1 .rank-num { color: #F59E0B; font-size: 16px; }
+.rank-2 .rank-num { color: #A1A1AA; font-size: 15px; }
+.rank-3 .rank-num { color: #B45309; font-size: 14px; }
+
+.bib-badge {
+  display: inline-block; background: var(--surface2);
+  border: 1px solid var(--border); padding: 3px 9px;
+  border-radius: 7px; font-family: monospace; font-size: 13px; font-weight: 700;
+  color: var(--text);
+}
+
+.cp-dots { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
+.cp-dot { width: 8px; height: 8px; border-radius: 50%; }
+.cp-dot.passed { background: var(--success); }
+.cp-dot.pending { background: var(--surface3); }
+
+.prog-bar-wrap { height: 4px; background: var(--surface3); border-radius: 2px; min-width: 55px; }
+.prog-bar-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.5s ease; }
+
+/* Format badges */
+.format-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+
+/* Format tabs */
+.format-tabs { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+.format-tab {
+  padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+  background: var(--surface2); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; color: var(--text2); font-family: inherit;
+}
+.format-tab.active { border-color: var(--primary); background: var(--primary-dim); color: var(--primary); }
+.format-tab:hover:not(.active) { border-color: rgba(255,255,255,0.15); color: var(--text); }
+
+/* ── BÉNÉVOLE ── */
+.cp-selector { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.cp-btn {
+  padding: 8px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text2); font-size: 13px;
+  cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.cp-btn.selected { background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; box-shadow: 0 4px 14px var(--primary-dim); }
+.cp-btn:hover:not(.selected) { border-color: var(--primary); color: var(--primary); }
+
+.bib-entry {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); padding: 28px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  margin-bottom: 20px; position: relative; overflow: hidden;
+}
+.bib-entry::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--primary);
+}
+.bib-entry-label { font-size: 11px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.bib-input-big {
+  width: 100%; max-width: 280px; text-align: center;
+  font-size: 44px; font-weight: 800; padding: 14px;
+  border: 2px solid var(--border); border-radius: 16px;
+  background: var(--surface2); color: var(--text);
+  letter-spacing: 8px; font-family: 'Inter', monospace;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.bib-input-big:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-dim);
+}
+.confirm-msg { font-size: 13px; font-weight: 600; min-height: 20px; }
+
+.recent-bibs { display: flex; flex-wrap: wrap; gap: 7px; }
+.bib-tag {
+  padding: 5px 12px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 20px;
+  font-size: 12px; color: var(--text2);
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ── SECTIONS & CARDS ── */
+.section-title {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 10px; margin-top: 22px;
+}
+.card-block {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); padding: 18px; margin-bottom: 14px;
+}
+.pwd-block {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); padding: 18px; margin-bottom: 14px;
+}
+.pwd-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.pwd-label { font-size: 13px; color: var(--text2); min-width: 110px; }
+.pwd-note { font-size: 12px; color: var(--text3); margin-top: 6px; }
+
+.setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+@media(max-width:480px){ .setup-grid { grid-template-columns: 1fr; } }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.add-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ── CHECKPOINT LIST ── */
+.checkpoint-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.checkpoint-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 13px;
+  background: var(--surface2); border-radius: 10px; border: 1px solid var(--border);
+}
+.cp-km-label { font-size: 13px; font-weight: 700; color: var(--text); flex-shrink: 0; }
+.cp-name-label { font-size: 13px; color: var(--text2); flex: 1; }
+.cp-delete { background: none; border: none; color: var(--text3); cursor: pointer; padding: 3px 6px; border-radius: 6px; font-size: 15px; transition: all 0.12s; }
+.cp-delete:hover { color: var(--error); background: var(--error-dim); }
+
+/* ── RUNNER LIST ── */
+.name-list { display: flex; flex-direction: column; gap: 5px; max-height: 280px; overflow-y: auto; }
+.name-item {
+  display: flex; align-items: center; gap: 9px; padding: 6px 10px;
+  background: var(--surface2); border-radius: 9px; border: 1px solid var(--border);
+}
+.name-bib { font-family: monospace; font-weight: 700; font-size: 13px; min-width: 44px; color: var(--primary); }
+.name-str { flex: 1; font-size: 13px; color: var(--text); }
+.name-format { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+.del-name { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 15px; transition: all 0.12s; }
+.del-name:hover { color: var(--error); }
+
+/* ── FORMATS ── */
+.format-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.format-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 13px;
+  background: var(--surface2); border-radius: 10px; border: 1px solid var(--border);
+}
+.format-color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.format-code { font-family: monospace; font-weight: 700; font-size: 13px; min-width: 38px; color: var(--text); }
+.format-label-str { flex: 1; font-size: 13px; color: var(--text2); }
+.format-delete { background: none; border: none; color: var(--text3); cursor: pointer; padding: 2px 6px; border-radius: 5px; font-size: 15px; transition: all 0.12s; }
+.format-delete:hover { color: var(--error); background: var(--error-dim); }
+
+.format-colors-pick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.color-swatch { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.12s; }
+.color-swatch.selected, .color-swatch:hover { border-color: white; transform: scale(1.15); }
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 52px 20px; color: var(--text3); }
+.empty-icon { font-size: 48px; margin-bottom: 14px; opacity: 0.25; }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7); z-index: 200;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border);
+  padding: 24px; max-width: 440px; width: 92%; max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow);
+  animation: modalIn 0.18s ease;
+}
+@keyframes modalIn { from { opacity:0; transform:scale(0.95) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; color: var(--text); }
+.modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text3); transition: color 0.12s; }
+.modal-close:hover { color: var(--text); }
+.modal-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--border2); font-size: 13px; color: var(--text2);
+}
+.modal-row:last-child { border-bottom: none; }
+.cp-status-passed { color: var(--success); font-weight: 600; }
+.cp-status-pending { color: var(--text3); }
+
+/* ── SPINNER ── */
+.connecting { text-align: center; padding: 64px 20px; color: var(--text3); font-size: 14px; }
+.spinner {
+  width: 34px; height: 34px; border: 3px solid var(--border);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin 0.7s linear infinite; margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.info-box { padding: 12px 14px; background: var(--success-dim); border-radius: 10px; border: 1px solid rgba(34,197,94,0.25); font-size: 13px; color: var(--success); margin-bottom: 14px; }
+
+/* ── CARTE IMAGE ── */
+.map-image-container {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); margin-bottom: 18px; overflow: hidden;
+}
+.map-image-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; border-bottom: 1px solid var(--border);
+}
+.map-image-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; }
+.map-image-wrap { position: relative; text-align: center; background: var(--surface2); min-height: 60px; }
+.map-image-wrap img { max-width: 100%; max-height: 400px; display: block; margin: 0 auto; }
+.map-placeholder { padding: 36px 20px; color: var(--text3); font-size: 13px; }
+.map-upload-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+  border-radius: 9px; border: 1.5px dashed var(--border);
+  background: transparent; color: var(--text3); font-size: 12px; cursor: pointer;
+  transition: all 0.15s; font-family: inherit;
+}
+.map-upload-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+#map-file-input { display: none; }
+
+/* ── IMPORT CSV/EXCEL ── */
+.import-zone {
+  border: 2px dashed var(--border); border-radius: 12px; padding: 26px;
+  text-align: center; cursor: pointer; transition: all 0.2s; background: var(--surface2);
+  margin-bottom: 12px;
+}
+.import-zone:hover, .import-zone.drag-over { border-color: var(--primary); background: var(--primary-dim); }
+.import-zone-icon { font-size: 32px; margin-bottom: 8px; }
+.import-zone-text { font-size: 13px; color: var(--text2); }
+.import-zone-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+#import-file-input { display: none; }
+
+.import-preview {
+  background: var(--surface2); border-radius: 10px; border: 1px solid var(--border);
+  overflow: hidden; margin-bottom: 12px;
+}
+.import-preview table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.import-preview th { padding: 7px 10px; background: var(--surface3); color: var(--text3); font-weight: 600; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid var(--border); text-align: left; letter-spacing: 0.5px; }
+.import-preview td { padding: 6px 10px; border-bottom: 1px solid var(--border2); color: var(--text2); }
+.import-preview tr:last-child td { border-bottom: none; }
+.import-preview .scroll-wrap { max-height: 200px; overflow-y: auto; }
+
+.col-mapping { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; font-size: 13px; color: var(--text2); }
+.col-mapping select { padding: 5px 9px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--surface2); color: var(--text); font-family: inherit; }
+.col-mapping select:focus { outline: none; border-color: var(--primary); }
+
+/* ── LISTE DES PASSAGES ── */
+.passages-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.passages-toolbar .filter-select,
+.passages-toolbar .search-input { font-size: 12px; padding: 6px 10px; }
+.passages-count-badge {
+  margin-left: auto; font-size: 12px; color: var(--text3); font-weight: 600;
+  background: var(--surface2); padding: 4px 12px; border-radius: 20px;
+  white-space: nowrap; border: 1px solid var(--border);
+}
+
+.passages-table-wrap {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); overflow: hidden; overflow-x: auto;
+}
+.passages-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
+.passages-table th {
+  text-align: left; padding: 9px 13px; font-size: 10px; font-weight: 700;
+  color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px;
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+.passages-table th:hover { background: var(--surface3); color: var(--text); }
+.passages-table th .sort-arrow { margin-left: 4px; opacity: 0.35; font-size: 10px; }
+.passages-table th.sorted .sort-arrow { opacity: 1; color: var(--primary); }
+.passages-table td { padding: 9px 13px; border-bottom: 1px solid var(--border2); vertical-align: middle; color: var(--text); }
+.passages-table tr:last-child td { border-bottom: none; }
+.passages-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+.passage-del-btn {
+  background: none; border: none; cursor: pointer; color: var(--surface3);
+  padding: 4px 7px; border-radius: 6px; font-size: 14px; transition: all 0.12s; line-height: 1;
+}
+.passage-del-btn:hover { color: var(--error); background: var(--error-dim); }
+
+.passage-time-badge {
+  font-family: 'Inter', monospace; font-size: 12px; font-weight: 600;
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 6px; color: var(--text);
+}
+.cp-pill {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 20px;
+  background: rgba(34,197,94,0.12); color: var(--success);
+  border: 1px solid rgba(34,197,94,0.25);
+}
+
+/* ── FILTRE ACTIF BANNIÈRE ── */
+.active-filter-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 12px; margin-bottom: 14px;
+  background: rgba(252,76,2,0.10); border: 1px solid var(--primary-border);
+  animation: slideDown 0.18s ease;
+}
+@keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+.active-filter-label { font-size: 13px; font-weight: 600; color: var(--primary); flex: 1; }
+.active-filter-sub { font-size: 12px; color: var(--text3); }
+.clear-filter-btn {
+  padding: 5px 13px; border-radius: 8px; border: 1px solid var(--primary-border);
+  background: transparent; color: var(--primary); font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
+}
+.clear-filter-btn:hover { background: var(--primary-dim); }
+
+/* ── CLASSEMENT PAR CP — colonne heure au cp ── */
+.time-at-cp { font-family: 'Inter', monospace; font-size: 13px; font-weight: 700; color: var(--primary); }
+
+/* ── EDIT RUNNER INLINE ── */
+.name-item.editing { background: var(--surface3); border-color: var(--primary-border); flex-wrap: wrap; gap: 6px; }
+.edit-runner-form { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; width: 100%; }
+.edit-runner-form .form-input { font-size: 13px; padding: 6px 10px; }
+
+/* ── RANKING SECTION HEADER ── */
+.ranking-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.ranking-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; display: flex; align-items: center; gap: 8px; }
+.ranking-section-count {
+  font-size: 11px; color: var(--text3); background: var(--surface3);
+  border: 1px solid var(--border); border-radius: 12px; padding: 2px 10px;
+}
+
+/* ── BAR CHART RACE ── */
+.bcr-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.88); z-index: 300;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.bcr-overlay.open { display: flex; }
+.bcr-modal {
+  background: var(--surface); border-radius: var(--r-card);
+  border: 1px solid var(--border); padding: 0;
+  width: 96%; max-width: 780px; max-height: 92vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 8px 48px rgba(0,0,0,0.7);
+  animation: modalIn 0.2s ease;
+}
+.bcr-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.bcr-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.bcr-subtitle { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.bcr-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text3); transition: color 0.12s; padding: 0 4px; }
+.bcr-close:hover { color: var(--text); }
+.bcr-body {
+  flex: 1; overflow-y: auto; padding: 18px 20px 14px;
+  min-height: 0;
+}
+.bcr-controls {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 12px 18px; border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.bcr-play-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--primary); border: none; color: white;
+  font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s;
+  box-shadow: 0 4px 12px var(--primary-dim);
+}
+.bcr-play-btn:hover { background: var(--primary-hover); transform: scale(1.05); }
+.bcr-step-info { font-size: 13px; color: var(--text2); font-weight: 600; flex: 1; }
+.bcr-step-sub { font-size: 11px; color: var(--text3); }
+.bcr-progress { flex: 1; min-width: 100px; }
+.bcr-progress-bar { height: 4px; background: var(--surface3); border-radius: 2px; }
+.bcr-progress-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.6s ease; }
+.bcr-speed { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text3); }
+.bcr-speed select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 7px; font-size: 12px; font-family: inherit; }
+
+.bcr-chart {
+  position: relative;
+  /* height set dynamically by JS */
+}
+.bcr-cp-label {
+  font-size: 12px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin-bottom: 14px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border2);
+  display: flex; align-items: center; gap: 8px;
+}
+.bcr-cp-label span { color: var(--primary); }
+
+/* Each row is absolutely positioned — JS moves it via translateY */
+.bcr-bar-row {
+  position: absolute; left: 0; right: 0;
+  display: flex; align-items: center; gap: 10px;
+  /* transition drives the animated reordering */
+  transition: transform 0.75s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity  0.4s ease;
+  height: 38px;
+}
+.bcr-bar-row.entering  { opacity: 0; }
+.bcr-bar-row.exiting   { opacity: 0; pointer-events: none; }
+
+.bcr-rank-badge {
+  width: 26px; height: 26px; border-radius: 50%; font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: var(--surface2); color: var(--text3); border: 1.5px solid var(--border);
+  transition: background 0.5s, color 0.5s, border-color 0.5s, font-size 0.3s;
+}
+.bcr-rank-badge.r1 { background: rgba(245,158,11,0.2); color: #F59E0B; border-color: rgba(245,158,11,0.4); font-size: 14px; }
+.bcr-rank-badge.r2 { background: rgba(161,161,170,0.15); color: #A1A1AA; border-color: rgba(161,161,170,0.3); }
+.bcr-rank-badge.r3 { background: rgba(180,83,9,0.2); color: #B45309; border-color: rgba(180,83,9,0.35); }
+
+.bcr-name {
+  width: 130px; font-size: 12px; font-weight: 600; color: var(--text);
+  flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bcr-bar-wrap { flex: 1; position: relative; height: 30px; }
+.bcr-bar {
+  height: 100%; border-radius: 0 8px 8px 0; min-width: 4px;
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;
+  /* bar width animates smoothly */
+  transition: width 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.bcr-bar-time { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); white-space: nowrap; }
+.bcr-bib { width: 44px; font-size: 11px; font-family: monospace; color: var(--text3); text-align: right; flex-shrink: 0; }
+
+/* Rank-change indicator arrow */
+.bcr-delta {
+  width: 22px; font-size: 11px; font-weight: 800; text-align: center;
+  flex-shrink: 0; line-height: 1;
+  transition: color 0.4s;
+}
+.bcr-delta.up   { color: var(--success); }
+.bcr-delta.down { color: var(--error); }
+.bcr-delta.same { color: var(--text3); opacity: 0.4; }
+
+/* ── GAP COLUMN ── */
+.gap-cell { font-size: 12px; font-family: monospace; color: var(--text3); white-space: nowrap; }
+.gap-cell.leader { color: var(--success); font-weight: 700; font-size: 11px; }
+.gap-cell.gap-small { color: var(--warning); }
+.gap-cell.gap-big { color: var(--text3); }
+
+/* ══════════════════════════════════════════════
+   MODULE BÉNÉVOLES (gestion équipe — distinct du
+   pointage chronométrage de l'onglet "Pointage")
+   ══════════════════════════════════════════════ */
+.vol-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 18px; margin-bottom: 16px; }
+.vol-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr)); gap: 10px; margin-bottom: 16px; }
+.vol-stat { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-input); padding: 12px; text-align: center; }
+.vol-stat-num { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; }
+.vol-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 4px; }
+
+.vol-mission-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-input); margin-bottom: 8px; flex-wrap: wrap; }
+.vol-mission-name { font-weight: 700; font-size: 13px; flex: 1; min-width: 120px; }
+.vol-mission-meta { font-size: 11px; color: var(--text3); }
+.vol-mission-fill-bar { width: 70px; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+.vol-mission-fill-inner { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.vol-mission-fill-inner.ok { background: var(--success); }
+.vol-mission-fill-inner.warn { background: var(--warning); }
+.vol-mission-fill-inner.danger { background: var(--error); }
+
+.vol-list-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border2); flex-wrap: wrap; }
+.vol-list-row:last-child { border-bottom: none; }
+.vol-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--primary-dim); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0; }
+.vol-name-block { flex: 1; min-width: 110px; }
+.vol-name { font-weight: 600; font-size: 13px; }
+.vol-contact { font-size: 11px; color: var(--text3); }
+.vol-status-pill { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+.vol-status-pill.pending { background: var(--warning-dim); color: var(--warning); }
+.vol-status-pill.validated { background: var(--success-dim); color: var(--success); }
+.vol-status-pill.assigned { background: var(--info-dim); color: var(--info); }
+.vol-status-pill.present { background: rgba(34,197,94,0.25); color: var(--success); }
+.vol-status-pill.absent { background: var(--error-dim); color: var(--error); }
+
+.vol-check-row { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.vol-check-btn { width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface3); color: var(--text3); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.vol-check-btn:hover { border-color: var(--success); color: var(--success); }
+.vol-check-btn.active-in { background: var(--success-dim); border-color: var(--success); color: var(--success); }
+.vol-check-btn.active-absent { background: var(--error-dim); border-color: var(--error); color: var(--error); }
+
+.vol-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.vol-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 600px) { .vol-form-grid { grid-template-columns: 1fr; } }
+.vol-empty { text-align: center; padding: 30px 16px; color: var(--text3); }
+.vol-empty-icon { font-size: 30px; margin-bottom: 8px; opacity: 0.4; }
+
+.vol-sub-tabs { display: flex; gap: 6px; margin-bottom: 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.vol-sub-tab { padding: 9px 14px; font-size: 12px; font-weight: 600; color: var(--text3); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; font-family: inherit; white-space: nowrap; }
+.vol-sub-tab:hover { color: var(--text2); }
+.vol-sub-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.vol-sub-panel { display: none; }
+.vol-sub-panel.active { display: block; }
+
+/* ══════════════════════════════════════════════
+   RGPD — bannière consentement, mentions, droits
+   ══════════════════════════════════════════════ */
+.rgpd-banner { position: fixed; left: 0; right: 0; bottom: 0; z-index: 500; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -8px 32px rgba(0,0,0,0.5); padding: 16px 18px; display: none; }
+.rgpd-banner.open { display: block; }
+.rgpd-banner-inner { max-width: 720px; margin: 0 auto; display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.rgpd-banner-text { flex: 1; min-width: 220px; font-size: 12.5px; color: var(--text2); line-height: 1.5; }
+.rgpd-banner-text a { color: var(--primary); text-decoration: underline; cursor: pointer; }
+.rgpd-banner-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.rgpd-link-row { font-size: 11px; color: var(--text3); text-align: center; padding: 14px 0 6px; }
+.rgpd-link-row a { color: var(--text3); text-decoration: underline; cursor: pointer; }
+.rgpd-link-row a:hover { color: var(--text2); }
+.vol-consent-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-input); padding: 12px 14px; margin-top: 10px; display: flex; gap: 10px; align-items: flex-start; }
+.vol-consent-box input[type="checkbox"] { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
+.vol-consent-text { font-size: 11.5px; color: var(--text3); line-height: 1.5; }
+.vol-consent-text a { color: var(--primary); cursor: pointer; }
+.security-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--success); background: var(--success-dim); padding: 3px 9px; border-radius: 10px; font-weight: 700; }
+
+/* ── FAVORITES ── */
+.fav-star {
+  background: none; border: none; cursor: pointer;
+  font-size: 17px; padding: 3px 4px; border-radius: 6px;
+  transition: transform 0.15s, opacity 0.15s;
+  line-height: 1; display: inline-flex; align-items: center;
+  opacity: 0.28;
+}
+.fav-star:hover { transform: scale(1.25); opacity: 0.7; }
+.fav-star.active { opacity: 1; filter: drop-shadow(0 0 4px rgba(245,158,11,0.6)); }
+.fav-star.active:hover { transform: scale(1.2); }
+
+.fav-filter-btn {
+  padding: 7px 14px; border-radius: var(--r-btn); font-size: 12px;
+  font-family: inherit; font-weight: 600; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--surface2);
+  color: var(--text3); transition: all 0.15s; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.fav-filter-btn:hover { border-color: #F59E0B; color: #F59E0B; background: rgba(245,158,11,0.1); }
+.fav-filter-btn.active {
+  border-color: #F59E0B; background: rgba(245,158,11,0.15);
+  color: #F59E0B;
+}
+.fav-count-badge {
+  background: #F59E0B; color: #000; font-size: 10px; font-weight: 800;
+  border-radius: 10px; padding: 1px 6px; min-width: 18px; text-align: center;
+}
+
+.fav-empty {
+  text-align: center; padding: 40px 20px; color: var(--text3);
+}
+.fav-empty-icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
+.fav-empty-text { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.fav-empty-sub { font-size: 12px; }
+
+/* ── VOICE INPUT ── */
+.voice-btn {
+  width: 64px; height: 64px; border-radius: 50%;
+  border: 2.5px solid var(--border);
+  background: var(--surface2); color: var(--text3);
+  font-size: 26px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all 0.2s; flex-shrink: 0;
+  position: relative;
+}
+.voice-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+.voice-btn.listening {
+  border-color: var(--error); color: var(--error);
+  background: var(--error-dim);
+  animation: voicePulse 1s ease-in-out infinite;
+}
+.voice-btn.confirming {
+  border-color: var(--warning); color: var(--warning);
+  background: var(--warning-dim);
+}
+@keyframes voicePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); transform: scale(1); }
+  50% { box-shadow: 0 0 0 12px rgba(239,68,68,0); transform: scale(1.04); }
+}
+.voice-status {
+  font-size: 12px; min-height: 18px; text-align: center;
+  color: var(--text3); transition: color 0.2s;
+}
+.voice-status.listening { color: var(--error); font-weight: 600; }
+.voice-status.confirming { color: var(--warning); font-weight: 600; }
+.voice-status.success { color: var(--success); font-weight: 600; }
+
+.voice-preview {
+  display: none; flex-direction: column; align-items: center; gap: 10px;
+  background: var(--surface2); border: 1.5px solid var(--warning);
+  border-radius: 16px; padding: 16px 20px; width: 100%; max-width: 300px;
+  animation: slideDown 0.18s ease;
+}
+.voice-preview.show { display: flex; }
+.voice-preview-bib {
+  font-size: 52px; font-weight: 800; color: var(--warning);
+  font-family: 'Inter', monospace; letter-spacing: 6px; line-height: 1;
+}
+.voice-preview-name { font-size: 13px; color: var(--text2); font-weight: 600; }
+.voice-preview-btns { display: flex; gap: 10px; width: 100%; }
+.voice-confirm-btn {
+  flex: 1; padding: 11px; border-radius: 12px; border: none;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: all 0.15s;
+}
+.voice-confirm-btn.yes {
+  background: var(--success); color: white;
+  box-shadow: 0 4px 14px rgba(34,197,94,0.35);
+}
+.voice-confirm-btn.yes:hover { background: #16a34a; transform: translateY(-1px); }
+.voice-confirm-btn.no {
+  background: var(--surface3); color: var(--text2);
+  border: 1.5px solid var(--border);
+}
+.voice-confirm-btn.no:hover { background: var(--error-dim); color: var(--error); border-color: var(--error); }
+
+.voice-not-supported {
+  font-size: 12px; color: var(--text3); text-align: center;
+  padding: 8px 12px; background: var(--surface3); border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.bib-input-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; max-width: 340px; justify-content: center;
+}
+.voice-waves {
+  display: none; gap: 3px; align-items: center; height: 24px;
+}
+.voice-waves.active { display: flex; }
+.voice-wave {
+  width: 4px; background: var(--error); border-radius: 2px;
+  animation: waveAnim 0.6s ease-in-out infinite;
+}
+.voice-wave:nth-child(1) { animation-delay: 0s; height: 8px; }
+.voice-wave:nth-child(2) { animation-delay: 0.1s; height: 16px; }
+.voice-wave:nth-child(3) { animation-delay: 0.2s; height: 24px; }
+.voice-wave:nth-child(4) { animation-delay: 0.1s; height: 16px; }
+.voice-wave:nth-child(5) { animation-delay: 0s; height: 8px; }
+@keyframes waveAnim {
+  0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+  50% { transform: scaleY(1); opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── FIREBASE CONFIG SCREEN ── -->
+<div class="config-screen" id="screen-firebase">
+  <div class="config-card">
+    <div style="font-size:32px;text-align:center;margin-bottom:16px;">🔥</div>
+    <div class="config-title">Connecter Firebase</div>
+    <div class="config-sub">Pour synchroniser les données en temps réel entre tous les appareils, connectez un projet Firebase gratuit. Opération unique, 5 minutes.</div>
+    <div class="step-block">
+      <div class="step-title"><span class="step-num">1</span>Créer un projet Firebase</div>
+      <div class="step-body">Allez sur <a href="https://console.firebase.google.com" target="_blank" style="color:var(--primary);">console.firebase.google.com</a> → <strong>Créer un projet</strong> → donnez-lui un nom → désactivez Google Analytics → <strong>Créer</strong>.</div>
+    </div>
+    <div class="step-block">
+      <div class="step-title"><span class="step-num">2</span>Activer Realtime Database</div>
+      <div class="step-body">
+        Dans le menu gauche → <strong>Build</strong> → <strong>Realtime Database</strong> → <strong>Create Database</strong> → choisissez une région → mode <strong>Test</strong> → <strong>Enable</strong>.<br><br>
+        Puis dans l'onglet <strong>Rules</strong>, remplacez par :
+        <div class="code-block">{"rules":{".read":true,".write":true}}</div>
+        Cliquez <strong>Publish</strong>.
+      </div>
+    </div>
+    <div class="step-block">
+      <div class="step-title"><span class="step-num">3</span>Récupérer les clés</div>
+      <div class="step-body">Roue dentée ⚙️ → <strong>Project settings</strong> → section <strong>Your apps</strong> → icône <strong>&lt;/&gt;</strong> (Web) → enregistrez l'app → copiez l'objet <code>firebaseConfig</code>.</div>
+    </div>
+    <div class="step-block">
+      <div class="step-title"><span class="step-num">4</span>Collez la configuration ici</div>
+      <div class="step-body" style="margin-bottom:10px;">Collez la valeur de <code>databaseURL</code></div>
+      <input class="config-input" id="fb-db-url" placeholder="https://mon-projet-default-rtdb.firebaseio.com" />
+      <div class="step-body" style="margin-bottom:8px;">Collez la valeur de <code>apiKey</code></div>
+      <input class="config-input" id="fb-api-key" placeholder="AIzaSy..." />
+      <div class="step-body" style="margin-bottom:8px;">Collez la valeur de <code>projectId</code></div>
+      <input class="config-input" id="fb-project-id" placeholder="mon-projet-12345" />
+      <button class="config-btn" onclick="connectFirebase()">🔗 Connecter et continuer</button>
+      <div class="config-error" id="fb-error"></div>
+    </div>
+    <div class="or-line">── ou ──</div>
+    <button class="btn" style="width:100%;justify-content:center;" onclick="useLocalStorage()">🖥 Utiliser en local (un seul appareil, sans sync)</button>
+  </div>
+</div>
+
+<!-- ── LOGIN SCREEN ── -->
+<div class="login-screen" id="screen-login" style="display:none;">
+  <div class="login-card">
+    <div class="login-logo">🏃</div>
+    <div class="login-title" id="login-race-title">Suivi de Course</div>
+    <div class="login-sub">Choisissez votre rôle et entrez votre code d'accès</div>
+    <div class="role-btns">
+      <button class="role-btn active" onclick="setRole('spectateur')" id="role-btn-spectateur">👁 Spectateur</button>
+      <button class="role-btn" onclick="setRole('benevole')" id="role-btn-benevole">📲 Bénévole</button>
+      <button class="role-btn" onclick="setRole('admin')" id="role-btn-admin">⚙️ Admin</button>
+    </div>
+    <div id="login-pass-block" style="display:none;">
+      <input class="login-input" type="password" id="login-input" placeholder="Code d'accès" onkeydown="if(event.key==='Enter') doLogin()" />
+    </div>
+    <button class="login-btn" onclick="doLogin()">Accéder →</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-hint" id="login-hint">Les spectateurs accèdent librement au classement en direct.</div>
+    <div class="rgpd-link-row">
+      <a onclick="openRgpdModal('policy')">Politique de confidentialité</a> ·
+      <a onclick="openRgpdModal('rights')">Mes droits sur mes données</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div class="app" id="screen-app">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">🏃</div>
+      <div>
+        <div class="race-title" id="race-name-display">Ma Course</div>
+        <div class="race-subtitle" id="race-date-display">—</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="demo-badge" style="display:none;background:var(--warning-dim);color:var(--warning);font-size:10px;font-weight:800;padding:4px 10px;border-radius:12px;letter-spacing:0.5px;">🎬 DÉMO</span>
+      <div class="live-badge"><div class="live-dot"></div> En direct</div>
+      <span class="role-badge" id="role-badge">spectateur</span>
+      <button class="logout-btn" onclick="doLogout()">✕ Quitter</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs-bar">
+    <button class="tab active" data-tabname="classement" onclick="switchTab('classement')">🏆 Classement</button>
+    <button class="tab tab-benevole" data-tabname="benevole" onclick="switchTab('benevole')" style="display:none;">⏱ Pointage</button>
+    <button class="tab tab-team" data-tabname="team" onclick="switchTab('team')" style="display:none;">👥 Bénévoles</button>
+    <button class="tab tab-admin" data-tabname="config" onclick="switchTab('config')" style="display:none;">⚙️ Admin</button>
+  </div>
+
+  <!-- ── CLASSEMENT ── -->
+  <div class="panel active" id="panel-classement">
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-val" id="stat-runners">0</div><div class="stat-lbl">Coureurs inscrits</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-checkpoints">0</div><div class="stat-lbl">Points de passage</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-scans">0</div><div class="stat-lbl">Passages enregistrés</div></div>
+    </div>
+
+    <!-- Carte du parcours -->
+    <div class="map-image-container" id="map-container">
+      <div class="map-image-header">
+        <span class="map-image-title">🗺 Carte du parcours</span>
+        <div id="map-admin-controls" style="display:none;gap:8px;display:none;align-items:center;">
+          <label class="map-upload-btn" for="map-file-input">📁 Changer l'image</label>
+          <button class="btn btn-danger" style="font-size:12px;padding:4px 10px;" onclick="removeMapImage()">✕ Supprimer</button>
+        </div>
+      </div>
+      <div class="map-image-wrap" id="map-image-wrap">
+        <div class="map-placeholder" id="map-placeholder">
+          <div style="font-size:32px;margin-bottom:8px;opacity:0.3;">🗺</div>
+          <div id="map-placeholder-text">Aucune carte chargée</div>
+          <label class="map-upload-btn" for="map-file-input" id="map-upload-label-main" style="display:none;margin:12px auto 0;">📁 Ajouter une image de carte</label>
+        </div>
+        <img id="map-image" src="" alt="Carte du parcours" style="display:none;" />
+      </div>
+    </div>
+    <input type="file" id="map-file-input" accept="image/*" onchange="handleMapImageUpload(event)" />
+
+    <!-- Onglets par format de course -->
+    <div id="format-tabs-container" style="display:none;">
+      <div class="format-tabs" id="format-tabs"></div>
+    </div>
+
+    <div class="filter-bar">
+      <select class="filter-select" id="cp-filter" onchange="onCpFilterChange()"><option value="all">Tous les points</option></select>
+      <select class="filter-select" id="sort-filter" onchange="renderRanking()">
+        <option value="progress">Par avancement</option>
+        <option value="last-time">Par heure de passage</option>
+        <option value="bib">Par dossard</option>
+      </select>
+      <input class="search-input" id="search-input" type="text" placeholder="🔍 Rechercher dossard ou nom..." oninput="renderRanking()" />
+      <button class="fav-filter-btn" id="fav-filter-btn" onclick="toggleFavFilter()" title="Afficher uniquement mes favoris">
+        ⭐ Favoris <span class="fav-count-badge" id="fav-count-badge" style="display:none;">0</span>
+      </button>
+      <button class="btn" onclick="openBarChartRace()" title="Voir le bar chart race animé" style="padding:7px 14px;font-size:12px;white-space:nowrap;">📊 Bar Chart Race</button>
+    </div>
+    <!-- Bannière filtre actif -->
+    <div class="active-filter-bar" id="active-filter-bar" style="display:none;">
+      <div>
+        <div class="active-filter-label" id="active-filter-label">📍 Classement au point —</div>
+        <div class="active-filter-sub">Classement des coureurs ayant franchi ce point, trié par heure de passage</div>
+      </div>
+      <button class="clear-filter-btn" onclick="clearCpFilter()">✕ Supprimer le filtre</button>
+    </div>
+    <div id="ranking-container">
+      <div class="table-wrap"><div class="empty-state"><div class="empty-icon">🚩</div><div style="font-size:15px;font-weight:600;">En attente des données...</div></div></div>
+    </div>
+  </div>
+
+  <!-- ── BENEVOLE ── -->
+  <div class="panel" id="panel-benevole">
+    <div class="section-title">Mon point de passage</div>
+    <div class="cp-selector" id="cp-selector"><div style="font-size:13px;color:var(--text3);">Aucun point configuré.</div></div>
+    <div class="bib-entry">
+      <div class="bib-entry-label">Numéro de dossard</div>
+
+      <!-- Saisie clavier + bouton micro -->
+      <div class="bib-input-row">
+        <input class="bib-input-big" type="number" id="bib-input" placeholder="000" min="1" max="9999" onkeydown="handleBibKey(event)" autocomplete="off" inputmode="numeric" style="max-width:200px;" />
+        <button class="voice-btn" id="voice-btn" onclick="toggleVoice()" title="Saisie vocale du dossard">🎤</button>
+      </div>
+
+      <!-- Ondes sonores animées (pendant écoute) -->
+      <div class="voice-waves" id="voice-waves">
+        <div class="voice-wave"></div><div class="voice-wave"></div><div class="voice-wave"></div>
+        <div class="voice-wave"></div><div class="voice-wave"></div>
+      </div>
+
+      <!-- Statut vocal -->
+      <div class="voice-status" id="voice-status">Appuyez sur 🎤 pour dicter le dossard</div>
+
+      <!-- Prévisualisation avant confirmation -->
+      <div class="voice-preview" id="voice-preview">
+        <div style="font-size:11px;font-weight:700;color:var(--warning);text-transform:uppercase;letter-spacing:0.5px;">Dossard reconnu</div>
+        <div class="voice-preview-bib" id="voice-preview-bib">—</div>
+        <div class="voice-preview-name" id="voice-preview-name"></div>
+        <div class="voice-preview-btns">
+          <button class="voice-confirm-btn yes" onclick="voiceConfirm()">✓ Confirmer</button>
+          <button class="voice-confirm-btn no" onclick="voiceCancel()">✕ Annuler</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="recordBib()" id="record-btn">✓ Enregistrer le passage</button>
+      <div class="confirm-msg" id="confirm-msg"></div>
+    </div>
+    <div class="section-title">Derniers passages enregistrés</div>
+    <div class="recent-bibs" id="recent-bibs"><div style="font-size:13px;color:var(--text3);">Aucun passage.</div></div>
+
+    <!-- ── TOUS LES PASSAGES ── -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:24px;margin-bottom:10px;">
+      <div class="section-title" style="margin:0;">Tous les passages enregistrés</div>
+      <button class="btn btn-danger" style="font-size:12px;padding:5px 12px;"
+        onclick="if(confirm('Effacer TOUS les passages enregistrés ?')) clearPassages()">🗑 Tout effacer</button>
+    </div>
+    <div class="passages-toolbar">
+      <select class="filter-select" id="plist-cp-filter" onchange="renderPassagesList()">
+        <option value="all">Tous les points</option>
+      </select>
+      <select class="filter-select" id="plist-format-filter" onchange="renderPassagesList()">
+        <option value="all">Tous les formats</option>
+      </select>
+      <input class="search-input" id="plist-search" type="text" placeholder="🔍 Dossard ou nom…" oninput="renderPassagesList()" style="min-width:140px;font-size:12px;padding:6px 10px;" />
+      <span class="passages-count-badge" id="plist-count">0 passage</span>
+      <button class="btn" onclick="exportPassagesCSV()" style="padding:5px 12px;font-size:12px;white-space:nowrap;" title="Exporter les passages filtrés en CSV">⬇ CSV</button>
+    </div>
+    <div class="passages-table-wrap">
+      <table class="passages-table" id="passages-table">
+        <thead>
+          <tr>
+            <th onclick="sortPassages('bib')"    data-col="bib">Dossard <span class="sort-arrow">↕</span></th>
+            <th onclick="sortPassages('name')"   data-col="name">Coureur <span class="sort-arrow">↕</span></th>
+            <th onclick="sortPassages('format')" data-col="format">Format <span class="sort-arrow">↕</span></th>
+            <th onclick="sortPassages('cp')"     data-col="cp">Point de passage <span class="sort-arrow">↕</span></th>
+            <th onclick="sortPassages('time')"   data-col="time">Heure <span class="sort-arrow">↕</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="passages-table-body">
+          <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3);font-size:13px;">Aucun passage enregistré.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── ÉQUIPE BÉNÉVOLES ── -->
+  <div class="panel" id="panel-team">
+    <div class="vol-stats-grid">
+      <div class="vol-stat"><div class="vol-stat-num" id="vol-stat-total">0</div><div class="vol-stat-label">Inscrits</div></div>
+      <div class="vol-stat"><div class="vol-stat-num" id="vol-stat-validated">0</div><div class="vol-stat-label">Validés</div></div>
+      <div class="vol-stat"><div class="vol-stat-num" id="vol-stat-assigned">0</div><div class="vol-stat-label">Affectés</div></div>
+      <div class="vol-stat"><div class="vol-stat-num" id="vol-stat-present">0</div><div class="vol-stat-label">Présents</div></div>
+    </div>
+
+    <div class="vol-sub-tabs">
+      <button class="vol-sub-tab active" data-vtab="missions" onclick="switchVolTab('missions')">📋 Missions</button>
+      <button class="vol-sub-tab" data-vtab="liste" onclick="switchVolTab('liste')">👥 Liste &amp; pointage</button>
+      <button class="vol-sub-tab" data-vtab="inscription" onclick="switchVolTab('inscription')">➕ Inscrire un bénévole</button>
+    </div>
+
+    <!-- MISSIONS -->
+    <div class="vol-sub-panel active" id="vtab-missions">
+      <div class="vol-card">
+        <div class="section-title" style="margin-top:0;">Créer une mission</div>
+        <div class="vol-form-grid">
+          <input class="form-input" id="mission-name" type="text" placeholder="Nom (ex: Ravitaillement Km 8)" />
+          <input class="form-input" id="mission-needed" type="number" min="1" placeholder="Bénévoles nécessaires" />
+          <input class="form-input" id="mission-start" type="time" />
+          <input class="form-input" id="mission-end" type="time" />
+        </div>
+        <button class="btn btn-primary" style="margin-top:10px;" onclick="addMission()">+ Ajouter la mission</button>
+      </div>
+      <div class="vol-card">
+        <div class="section-title" style="margin-top:0;">Missions &amp; taux de couverture</div>
+        <div id="mission-list"><div class="vol-empty"><div class="vol-empty-icon">📋</div>Aucune mission créée.</div></div>
+      </div>
+    </div>
+
+    <!-- LISTE + POINTAGE -->
+    <div class="vol-sub-panel" id="vtab-liste">
+      <div class="vol-filter-bar">
+        <select class="filter-select" id="vol-filter-status" onchange="renderVolunteerList()">
+          <option value="all">Tous statuts</option>
+          <option value="pending">En attente</option>
+          <option value="validated">Validés</option>
+          <option value="assigned">Affectés</option>
+        </select>
+        <select class="filter-select" id="vol-filter-mission" onchange="renderVolunteerList()">
+          <option value="all">Toutes missions</option>
+        </select>
+        <input class="search-input" id="vol-search" type="text" placeholder="🔍 Rechercher un bénévole..." oninput="renderVolunteerList()" />
+        <button class="btn" onclick="exportVolunteersCSV()" style="padding:7px 14px;font-size:12px;">⬇ CSV</button>
+      </div>
+      <div class="vol-card" style="padding:8px 14px;">
+        <div id="vol-list"><div class="vol-empty"><div class="vol-empty-icon">👥</div>Aucun bénévole inscrit pour le moment.</div></div>
+      </div>
+    </div>
+
+    <!-- INSCRIPTION -->
+    <div class="vol-sub-panel" id="vtab-inscription">
+      <div class="vol-card">
+        <div class="section-title" style="margin-top:0;">Inscrire un bénévole</div>
+        <div class="vol-form-grid">
+          <input class="form-input" id="vol-new-name" type="text" placeholder="Nom complet" />
+          <input class="form-input" id="vol-new-phone" type="tel" placeholder="Téléphone" />
+          <input class="form-input" id="vol-new-email" type="email" placeholder="Email" style="grid-column:1/-1;" />
+          <select class="form-input" id="vol-new-mission">
+            <option value="">— Mission (optionnel) —</option>
+          </select>
+          <select class="form-input" id="vol-new-status">
+            <option value="pending">En attente de validation</option>
+            <option value="validated">Validé</option>
+          </select>
+        </div>
+
+        <div class="vol-consent-box">
+          <input type="checkbox" id="vol-new-consent" />
+          <div class="vol-consent-text">
+            J'ai recueilli le consentement de cette personne pour le traitement de ses données
+            (nom, contact, mission) dans le cadre de l'organisation de l'événement, conformément à notre
+            <a onclick="openRgpdModal('policy')">politique de confidentialité</a>. Les données seront conservées
+            jusqu'à 12 mois après l'événement puis supprimées.
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:12px;" onclick="addVolunteer()">+ Inscrire</button>
+        <div id="vol-new-msg" style="font-size:13px;margin-top:8px;min-height:18px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONFIG / ADMIN ── -->
+  <div class="panel" id="panel-config">
+    <div class="card-block" id="demo-block" style="display:none;border:1.5px dashed var(--warning);background:var(--warning-dim);">
+      <div class="section-title" style="margin-top:0;color:var(--warning);">🎬 Mode démo</div>
+      <p style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px;">
+        Cette instance est une démo publique. Tu peux la réinitialiser à tout moment avec un jeu de
+        données d'exemple (course, points de passage, coureurs, bénévoles), par exemple si un visiteur
+        a modifié ou supprimé des données.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="loadDemoData()">🎬 Charger / réinitialiser la démo</button>
+        <button class="btn" style="border-color:var(--error);color:var(--error);" onclick="wipeAllData()">🧨 Tout effacer</button>
+      </div>
+      <div id="demo-msg" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
+    </div>
+
+    <div class="card-block">
+      <div class="section-title" style="margin-top:0;">Informations de la course</div>
+      <div class="setup-grid">
+        <div class="form-group">
+          <label class="form-label">Nom de la course</label>
+          <input class="form-input" id="race-name-input" type="text" placeholder="Trail des Cailloux" oninput="updateRaceMeta()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input class="form-input" id="race-date-input" type="date" oninput="updateRaceMeta()" />
+        </div>
+      </div>
+    </div>
+
+    <div class="pwd-block">
+      <div class="section-title" style="margin-top:0;">🔐 Codes d'accès <span class="security-badge">🔒 Hashés (SHA-256)</span></div>
+      <div class="pwd-row">
+        <span class="pwd-label">⏱ Pointage</span>
+        <input class="pwd-input form-input" id="pwd-benevole" type="text" placeholder="ex: benevole2025" autocomplete="new-password" />
+      </div>
+      <div class="pwd-row">
+        <span class="pwd-label">⚙️ Admins</span>
+        <input class="pwd-input form-input" id="pwd-admin" type="text" placeholder="ex: admin_secret" autocomplete="new-password" />
+      </div>
+      <button class="btn btn-primary" style="margin-top:6px;" onclick="savePwds()">💾 Enregistrer les codes</button>
+      <div class="pwd-note">Les spectateurs n'ont pas besoin de code. Les codes sont hashés avant d'être stockés : même en cas d'accès à la base de données, ils ne sont pas lisibles en clair.</div>
+    </div>
+
+    <!-- RGPD & DONNÉES -->
+    <div class="card-block">
+      <div class="section-title" style="margin-top:0;">🛡️ Confidentialité &amp; RGPD</div>
+      <p style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px;">
+        Cette application traite des données personnelles (noms, contacts) de coureurs et bénévoles.
+        En tant qu'organisateur, vous êtes responsable de traitement au sens du RGPD.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button class="btn" onclick="openRgpdModal('policy')">📄 Politique de confidentialité</button>
+        <button class="btn" onclick="openRgpdModal('rights')">👤 Demandes de droits (accès / effacement)</button>
+      </div>
+      <div class="vol-card" style="margin-bottom:0;">
+        <div class="section-title" style="margin-top:0;font-size:12px;">🗑️ Effacement de données</div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px;">
+          Supprime définitivement les données personnelles d'un coureur ou bénévole (nom, contact),
+          tout en conservant l'historique anonymisé des temps de passage pour les statistiques de course.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input class="form-input" id="erase-bib-input" type="number" placeholder="N° dossard à effacer" style="max-width:160px;" />
+          <button class="btn" style="border-color:var(--error);color:var(--error);" onclick="eraseRunnerData()">🗑️ Effacer les données nominatives</button>
+        </div>
+        <div id="erase-msg" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
+      </div>
+    </div>
+
+    <!-- FORMATS DE COURSE -->
+    <div class="card-block">
+      <div class="section-title" style="margin-top:0;">🏷 Formats de course <span style="font-weight:400;color:var(--text3);">(max 10)</span></div>
+      <div class="format-list" id="format-list"><div style="font-size:13px;color:var(--text3);">Aucun format.</div></div>
+      <div class="add-row" style="margin-top:8px;">
+        <input class="form-input" id="new-format-code" type="text" placeholder="Code (S, M, L…)" style="width:90px;" maxlength="8" />
+        <input class="form-input" id="new-format-label" type="text" placeholder="Libellé (ex: Trail court)" style="flex:1;min-width:130px;" onkeydown="if(event.key==='Enter') addFormat()" />
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div class="format-colors-pick" id="format-color-picker"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addFormat()">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- POINTS DE PASSAGE -->
+    <div class="card-block">
+      <div class="section-title" style="margin-top:0;">Points de passage</div>
+      <div class="checkpoint-list" id="checkpoint-list"><div style="font-size:13px;color:var(--text3);">Aucun point.</div></div>
+      <div class="add-row">
+        <input class="form-input" id="new-cp-km" type="number" placeholder="Km" min="0" max="999" style="width:75px;" />
+        <input class="form-input" id="new-cp-name" type="text" placeholder="Nom (ex: Ravitaillement)" style="flex:1;min-width:130px;" onkeydown="if(event.key==='Enter') addCheckpoint()" />
+        <button class="btn btn-primary" onclick="addCheckpoint()">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- COUREURS + IMPORT -->
+    <div class="card-block">
+      <div class="section-title" style="margin-top:0;">Coureurs <span style="font-weight:400;color:var(--text3);">(optionnel)</span></div>
+
+      <!-- Import CSV/Excel -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">📥 Importer depuis fichier</div>
+        <div class="import-zone" id="import-zone" onclick="document.getElementById('import-file-input').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <div class="import-zone-icon">📄</div>
+          <div class="import-zone-text">Glissez un fichier CSV ou Excel ici</div>
+          <div class="import-zone-sub">ou cliquez pour choisir un fichier (.csv, .xlsx, .xls)</div>
+        </div>
+        <input type="file" id="import-file-input" accept=".csv,.xlsx,.xls" onchange="handleImportFile(event)" />
+
+        <div id="import-panel" style="display:none;">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:8px;">Associer les colonnes :</div>
+          <div class="col-mapping">
+            <label>Dossard : <select id="col-bib"></select></label>
+            <label>Nom : <select id="col-name"></select></label>
+            <label>Format course : <select id="col-format"><option value="">— non défini —</option></select></label>
+          </div>
+          <div id="import-preview" class="import-preview"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green" onclick="confirmImport()">✓ Importer les participants</button>
+            <button class="btn" onclick="cancelImport()">Annuler</button>
+          </div>
+          <div id="import-msg" style="font-size:13px;margin-top:8px;min-height:18px;"></div>
+        </div>
+      </div>
+
+      <!-- Ajout manuel -->
+      <div style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px;">✏️ Ajout manuel</div>
+      <div class="add-row" style="margin-bottom:10px;">
+        <input class="form-input" id="new-runner-bib" type="number" placeholder="Dossard" style="width:86px;" />
+        <input class="form-input" id="new-runner-name" type="text" placeholder="Prénom Nom" style="flex:1;min-width:130px;" onkeydown="if(event.key==='Enter') addRunner()" />
+        <select class="form-input" id="new-runner-format" style="width:100px;">
+          <option value="">Format…</option>
+        </select>
+        <button class="btn" onclick="addRunner()">+ Ajouter</button>
+      </div>
+      <div class="name-list" id="runner-name-list"><div style="font-size:13px;color:var(--text3);padding:4px 8px;">Aucun coureur.</div></div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+      <button class="btn btn-danger" onclick="if(confirm('Effacer tous les passages ?')) clearPassages()">🗑 Effacer les passages</button>
+      <button class="btn" onclick="exportCSV()">⬇ Exporter CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- BCR MODAL -->
+<div class="bcr-overlay" id="bcr-overlay" onclick="if(event.target===this) closeBcr()">
+  <div class="bcr-modal">
+    <div class="bcr-header">
+      <div>
+        <div class="bcr-title">📊 Bar Chart Race — Évolution du classement</div>
+        <div class="bcr-subtitle" id="bcr-modal-subtitle">Top 10 coureurs à travers les points de passage</div>
+      </div>
+      <button class="bcr-close" onclick="closeBcr()">×</button>
+    </div>
+    <div class="bcr-body" id="bcr-body">
+      <!-- cp label stays at top, chart container below it -->
+      <div class="bcr-cp-label" id="bcr-cp-label" style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border2);font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;">
+        📍 <span id="bcr-cp-label-text" style="color:var(--primary);">—</span>
+        <span id="bcr-cp-runner-count" style="color:var(--text3);font-weight:400;margin-left:8px;"></span>
+      </div>
+      <div id="bcr-chart-container" style="position:relative;"></div>
+    </div>
+    <div class="bcr-controls">
+      <button class="bcr-play-btn" id="bcr-play-btn" onclick="bcrTogglePlay()">▶</button>
+      <div style="flex:1;min-width:0;">
+        <div class="bcr-step-info" id="bcr-step-info">—</div>
+        <div class="bcr-step-sub" id="bcr-step-sub"></div>
+      </div>
+      <div class="bcr-progress" style="min-width:80px;">
+        <div class="bcr-progress-bar"><div class="bcr-progress-fill" id="bcr-progress-fill" style="width:0%"></div></div>
+      </div>
+      <div class="bcr-speed">
+        <span>Vitesse</span>
+        <select id="bcr-speed-select" onchange="bcrSetSpeed()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:7px;font-size:12px;font-family:inherit;">
+          <option value="2000">Lente</option>
+          <option value="1200" selected>Normale</option>
+          <option value="600">Rapide</option>
+          <option value="300">Très rapide</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" style="padding:5px 11px;font-size:12px;" onclick="bcrPrev()">‹</button>
+        <button class="btn" style="padding:5px 11px;font-size:12px;" onclick="bcrNext()">›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RGPD CONSENT BANNER -->
+<div class="rgpd-banner" id="rgpd-banner">
+  <div class="rgpd-banner-inner">
+    <div class="rgpd-banner-text">
+      🍪 Cette application stocke localement votre rôle de connexion et utilise une base de données
+      pour le suivi de course. Aucune donnée n'est partagée avec des tiers à des fins publicitaires.
+      <a onclick="openRgpdModal('policy')">En savoir plus</a>
+    </div>
+    <div class="rgpd-banner-btns">
+      <button class="btn" onclick="dismissRgpdBanner()">Continuer</button>
+      <button class="btn btn-primary" onclick="acceptRgpdBanner()">J'ai compris</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RGPD -->
+<div class="modal-overlay" id="rgpd-modal-overlay" onclick="closeRgpdModal(event)">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">
+      <span id="rgpd-modal-title">Confidentialité</span>
+      <button class="modal-close" onclick="document.getElementById('rgpd-modal-overlay').classList.remove('open')">×</button>
+    </div>
+    <div id="rgpd-modal-body" style="font-size:13px;color:var(--text2);line-height:1.7;max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- MODAL DÉTAIL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="modal-title-text">Détail</span>
+      <button class="modal-close" onclick="document.getElementById('modal-overlay').classList.remove('open')">×</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIG — mode démo
+// ═══════════════════════════════════════════════
+// Mets cette constante à true pour activer le mode démo public :
+// - affiche le bloc "🎬 Mode démo" dans l'onglet Admin (charger/réinitialiser)
+// - badge "DEMO" dans l'en-tête
+// Laisse à false pour une instance de production normale.
+const DEMO_MODE = false;
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let db = null;
+let useLocal = false;
+let currentRole = 'spectateur';
+let selectedCp = null;
+let recentBibs = [];
+let activeFormatFilter = 'all';
+let importData = null;
+let passagesSort = { col: 'time', dir: 'desc' };
+let importHeaders = [];
+let selectedFormatColor = 'var(--primary)';
+let favoriteBibs = new Set();   // persisted in localStorage per race
+let showOnlyFavs = false;        // current filter state
+
+// Palette de couleurs pour les formats
+const FORMAT_COLORS = ['var(--primary)','#3B82F6','#1D9E75','#F59E0B','#8B5CF6','#EC4899','#06B6D4','#84CC16','#F97316','#64748B'];
+
+let state = {
+  raceName: '', raceDate: '',
+  checkpoints: [], passages: {}, runners: {},
+  passwords: { benevole: '', admin: '' },  // legacy plaintext field — migrated to hashed below
+  passwordHashes: { benevole: '', admin: '' }, // SHA-256 hex digests, salted with raceName
+  formats: [],       // [{code, label, color}]
+  mapImage: null,    // base64 data URL
+  missions: {},      // {missionId: {name, needed, start, end}}
+  volunteers: {},    // {volId: {name, phone, email, missionId, status, present, consentAt, registeredAt}}
+};
+
+// ═══════════════════════════════════════════════
+//  FIREBASE SETUP
+// ═══════════════════════════════════════════════
+function connectFirebase() {
+  const dbUrl = document.getElementById('fb-db-url').value.trim();
+  const apiKey = document.getElementById('fb-api-key').value.trim();
+  const projectId = document.getElementById('fb-project-id').value.trim();
+  const errEl = document.getElementById('fb-error');
+  if (!dbUrl || !apiKey || !projectId) { errEl.textContent = 'Remplissez tous les champs.'; return; }
+  if (!dbUrl.startsWith('https://')) { errEl.textContent = "L'URL doit commencer par https://"; return; }
+  errEl.textContent = '';
+  try {
+    if (!firebase.apps.length) firebase.initializeApp({ apiKey, databaseURL: dbUrl, projectId });
+    db = firebase.database();
+    db.ref('.info/connected').once('value').then(() => {
+      localStorage.setItem('fb_config', JSON.stringify({ dbUrl, apiKey, projectId }));
+      startApp();
+    }).catch(e => { errEl.textContent = 'Connexion échouée : ' + e.message; });
+  } catch(e) { errEl.textContent = 'Erreur : ' + e.message; }
+}
+
+function useLocalStorage() { useLocal = true; localStorage.setItem('fb_config', 'local'); startApp(); }
+
+function tryAutoConnect() {
+  const saved = localStorage.getItem('fb_config');
+  if (!saved) { showScreen('firebase'); return; }
+  if (saved === 'local') { useLocal = true; startApp(); return; }
+  try {
+    const cfg = JSON.parse(saved);
+    if (!firebase.apps.length) firebase.initializeApp({ apiKey: cfg.apiKey, databaseURL: cfg.dbUrl, projectId: cfg.projectId });
+    db = firebase.database();
+    startApp();
+  } catch(e) { showScreen('firebase'); }
+}
+
+// ═══════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════
+function showScreen(name) {
+  document.getElementById('screen-firebase').style.display = name === 'firebase' ? 'flex' : 'none';
+  document.getElementById('screen-login').style.display = name === 'login' ? 'flex' : 'none';
+  document.getElementById('screen-app').style.display = name === 'app' ? 'block' : 'none';
+}
+
+function startApp() { showScreen('login'); loadStateFromDB(); }
+
+// ═══════════════════════════════════════════════
+//  DATABASE
+// ═══════════════════════════════════════════════
+function dbRef(path) { if (useLocal) return null; return db ? db.ref(path) : null; }
+
+function loadStateFromDB() {
+  if (useLocal) {
+    try { const raw = localStorage.getItem('race_state'); if (raw) state = JSON.parse(raw); } catch(e){}
+    migratePlaintextPasswords();
+    applyState(); return;
+  }
+  const ref = dbRef('race');
+  if (!ref) return;
+  ref.on('value', snap => {
+    const data = snap.val();
+    if (data) {
+      state = {
+        raceName: data.raceName || '',
+        raceDate: data.raceDate || '',
+        checkpoints: data.checkpoints ? Object.values(data.checkpoints).sort((a,b)=>a.km-b.km) : [],
+        passages: data.passages || {},
+        runners: data.runners || {},
+        passwords: data.passwords || { benevole: '', admin: '' },
+        passwordHashes: data.passwordHashes || { benevole: '', admin: '' },
+        formats: data.formats ? (Array.isArray(data.formats) ? data.formats : Object.values(data.formats)) : [],
+        mapImage: data.mapImage || null,
+        missions: data.missions || {},
+        volunteers: data.volunteers || {}
+      };
+    }
+    migratePlaintextPasswords();
+    applyState();
+  });
+}
+
+// SHA-256 hashing for access codes (salted with race name so two events with the
+// same code don't produce the same hash). Codes are never stored or compared in
+// plaintext once this has run.
+async function hashCode(code, salt) {
+  const enc = new TextEncoder().encode((salt||'apirace') + ':' + code);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// One-time migration: if a legacy plaintext password exists but no hash yet,
+// hash it silently and clear the plaintext field.
+async function migratePlaintextPasswords() {
+  let changed = false;
+  if (!state.passwordHashes) state.passwordHashes = { benevole: '', admin: '' };
+  for (const role of ['benevole','admin']) {
+    if (state.passwords && state.passwords[role] && !state.passwordHashes[role]) {
+      state.passwordHashes[role] = await hashCode(state.passwords[role], state.raceName);
+      state.passwords[role] = '';
+      changed = true;
+    }
+  }
+  if (changed) saveState();
+}
+
+function saveState() {
+  if (useLocal) { try { localStorage.setItem('race_state', JSON.stringify(state)); } catch(e){} return; }
+  const ref = dbRef('race');
+  if (!ref) return;
+  const cpObj = {};
+  state.checkpoints.forEach(cp => { cpObj[cp.id] = cp; });
+  ref.set({
+    raceName: state.raceName, raceDate: state.raceDate,
+    checkpoints: cpObj, passages: state.passages, runners: state.runners,
+    passwords: state.passwords, passwordHashes: state.passwordHashes || { benevole:'', admin:'' },
+    formats: state.formats || [],
+    mapImage: state.mapImage || null,
+    missions: state.missions || {},
+    volunteers: state.volunteers || {}
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════
+let loginRole = 'spectateur';
+
+function setRole(role) {
+  loginRole = role;
+  ['spectateur','benevole','admin'].forEach(r => document.getElementById('role-btn-'+r).classList.toggle('active', r===role));
+  document.getElementById('login-pass-block').style.display = (role==='spectateur') ? 'none' : 'block';
+  const hints = { spectateur: 'Les spectateurs accèdent librement au classement en direct.', benevole: "Entrez le code bénévole fourni par l'organisateur.", admin: "Entrez le code administrateur pour accéder à la configuration." };
+  document.getElementById('login-hint').textContent = hints[role];
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-input').value = '';
+}
+
+async function doLogin() {
+  const pwd = (document.getElementById('login-input').value||'').trim();
+  if (loginRole==='spectateur') { enterApp('spectateur'); return; }
+  const role = loginRole; // 'benevole' (pointage) or 'admin'
+  const hashes = state.passwordHashes || {};
+  // No code configured yet for this role → allow access (first-time setup)
+  if (!hashes[role]) { enterApp(role); return; }
+  const candidate = await hashCode(pwd, state.raceName);
+  if (candidate === hashes[role]) { enterApp(role); return; }
+  document.getElementById('login-error').textContent = 'Code incorrect.';
+}
+
+function enterApp(role) {
+  currentRole = role;
+  showScreen('app');
+  const badge = document.getElementById('role-badge');
+  badge.textContent = role==='admin' ? '⚙️ Admin' : role==='benevole' ? '⏱ Pointage' : '👁 Spectateur';
+  badge.className = 'role-badge '+role;
+  document.querySelector('.tab-benevole').style.display = (role==='benevole'||role==='admin') ? '' : 'none';
+  document.querySelector('.tab-team').style.display = (role==='benevole'||role==='admin') ? '' : 'none';
+  document.querySelector('.tab-admin').style.display = role==='admin' ? '' : 'none';
+  const demoBadge = document.getElementById('demo-badge');
+  if (demoBadge) demoBadge.style.display = DEMO_MODE ? 'inline-block' : 'none';
+  const demoBlock = document.getElementById('demo-block');
+  if (demoBlock) demoBlock.style.display = (DEMO_MODE && role==='admin') ? 'block' : 'none';
+  applyState();
+  switchTab('classement');
+  maybeShowRgpdBanner();
+}
+
+function doLogout() { currentRole='spectateur'; showScreen('login'); setRole('spectateur'); document.getElementById('login-input').value=''; }
+
+// ═══════════════════════════════════════════════
+//  APPLY STATE
+// ═══════════════════════════════════════════════
+function applyState() {
+  const rn = document.getElementById('race-name-input');
+  const rd = document.getElementById('race-date-input');
+  if (rn) rn.value = state.raceName || '';
+  if (rd) rd.value = state.raceDate || '';
+  document.getElementById('race-name-display').textContent = state.raceName || 'Ma Course';
+  if (document.getElementById('login-race-title')) document.getElementById('login-race-title').textContent = state.raceName || 'Suivi de Course';
+  if (state.raceDate) {
+    const d = new Date(state.raceDate+'T12:00:00');
+    document.getElementById('race-date-display').textContent = d.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  }
+  const pbv = document.getElementById('pwd-benevole');
+  const pba = document.getElementById('pwd-admin');
+  // Never echo stored secrets back into inputs — codes are hashed and one-way.
+  // Leaving the field blank with a placeholder showing "configured" status is safer.
+  if (pbv) { pbv.value = ''; pbv.placeholder = (state.passwordHashes && state.passwordHashes.benevole) ? '•••••••• (déjà configuré — retaper pour changer)' : 'ex: benevole2025'; }
+  if (pba) { pba.value = ''; pba.placeholder = (state.passwordHashes && state.passwordHashes.admin) ? '•••••••• (déjà configuré — retaper pour changer)' : 'ex: admin_secret'; }
+  loadFavorites();
+  renderCheckpointList(); renderCpSelector(); updateCpFilter();
+  renderRunnerNameList(); updateStats();
+  renderFormatList(); renderFormatColorPicker(); renderFormatTabs();
+  renderRanking(); updateMapImage();
+  updateRunnerFormatSelect();
+  renderPassagesList(); updatePlistFilters();
+  renderMissionList(); renderVolunteerList(); updateVolunteerStats();
+  updateVolMissionSelects();
+}
+
+// ═══════════════════════════════════════════════
+//  RACE META
+// ═══════════════════════════════════════════════
+function updateRaceMeta() {
+  state.raceName = document.getElementById('race-name-input').value;
+  state.raceDate = document.getElementById('race-date-input').value;
+  document.getElementById('race-name-display').textContent = state.raceName || 'Ma Course';
+  saveState();
+}
+
+async function savePwds() {
+  const newBenevole = document.getElementById('pwd-benevole').value.trim();
+  const newAdmin = document.getElementById('pwd-admin').value.trim();
+  if (!state.passwordHashes) state.passwordHashes = { benevole: '', admin: '' };
+  if (newBenevole) state.passwordHashes.benevole = await hashCode(newBenevole, state.raceName);
+  if (newAdmin) state.passwordHashes.admin = await hashCode(newAdmin, state.raceName);
+  // Make sure no plaintext lingers in the legacy field
+  state.passwords = { benevole: '', admin: '' };
+  saveState();
+  document.getElementById('pwd-benevole').value = '';
+  document.getElementById('pwd-admin').value = '';
+  applyState();
+  alert('✅ Codes enregistrés et sécurisés (hashés) !');
+}
+
+// ═══════════════════════════════════════════════
+//  FORMATS DE COURSE
+// ═══════════════════════════════════════════════
+function renderFormatColorPicker() {
+  const el = document.getElementById('format-color-picker');
+  if (!el) return;
+  el.innerHTML = FORMAT_COLORS.map(c => `<div class="color-swatch ${c===selectedFormatColor?'selected':''}" style="background:${c};" onclick="selectFormatColor('${c}')"></div>`).join('');
+}
+
+function selectFormatColor(c) { selectedFormatColor = c; renderFormatColorPicker(); }
+
+function addFormat() {
+  const code = document.getElementById('new-format-code').value.trim().toUpperCase();
+  const label = document.getElementById('new-format-label').value.trim();
+  if (!code) { alert('Entrez un code de format.'); return; }
+  if (!state.formats) state.formats = [];
+  if (state.formats.length >= 10) { alert('Maximum 10 formats de course.'); return; }
+  if (state.formats.find(f => f.code === code)) { alert('Ce code existe déjà.'); return; }
+  state.formats.push({ code, label: label || code, color: selectedFormatColor });
+  document.getElementById('new-format-code').value = '';
+  document.getElementById('new-format-label').value = '';
+  saveState(); renderFormatList(); renderFormatTabs(); updateRunnerFormatSelect(); renderRanking(); updatePlistFilters();
+}
+
+function removeFormat(code) {
+  if (!confirm('Supprimer ce format ?')) return;
+  state.formats = state.formats.filter(f => f.code !== code);
+  saveState(); renderFormatList(); renderFormatTabs(); updateRunnerFormatSelect(); renderRanking(); updatePlistFilters();
+}
+
+function renderFormatList() {
+  const el = document.getElementById('format-list');
+  if (!el) return;
+  if (!state.formats || !state.formats.length) { el.innerHTML = '<div style="font-size:13px;color:var(--text3);">Aucun format. Les coureurs pourront quand même être listés sans format.</div>'; return; }
+  el.innerHTML = state.formats.map(f => `
+    <div class="format-item">
+      <div class="format-color-dot" style="background:${f.color};"></div>
+      <span class="format-code">${f.code}</span>
+      <span class="format-label-str">${f.label}</span>
+      <button class="format-delete" onclick="removeFormat('${f.code}')">✕</button>
+    </div>`).join('');
+}
+
+function renderFormatTabs() {
+  const container = document.getElementById('format-tabs-container');
+  const el = document.getElementById('format-tabs');
+  if (!el || !container) return;
+  if (!state.formats || state.formats.length < 2) { container.style.display = 'none'; activeFormatFilter = 'all'; return; }
+  container.style.display = '';
+  el.innerHTML = `<button class="format-tab ${activeFormatFilter==='all'?'active':''}" onclick="setFormatFilter('all')">Tous</button>` +
+    state.formats.map(f => `<button class="format-tab ${activeFormatFilter===f.code?'active':''}" onclick="setFormatFilter('${f.code}')" style="--fc:${f.color};">${f.code} — ${f.label}</button>`).join('');
+  // color active tab with format color
+  el.querySelectorAll('.format-tab:not(:first-child)').forEach((btn, i) => {
+    if (state.formats[i] && activeFormatFilter === state.formats[i].code) {
+      btn.style.borderColor = state.formats[i].color;
+      btn.style.background = state.formats[i].color + '22';
+      btn.style.color = state.formats[i].color;
+    }
+  });
+}
+
+function setFormatFilter(code) { activeFormatFilter = code; renderFormatTabs(); renderRanking(); }
+
+function getFormatInfo(code) {
+  if (!state.formats || !code) return null;
+  return state.formats.find(f => f.code === code) || null;
+}
+
+function updateRunnerFormatSelect() {
+  const sel = document.getElementById('new-runner-format');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Format…</option>' + (state.formats||[]).map(f => `<option value="${f.code}">${f.code} — ${f.label}</option>`).join('');
+  if (cur) try { sel.value = cur; } catch(e){}
+  // Also update import col-format
+  const selImp = document.getElementById('col-format');
+  if (selImp && importHeaders.length) { /* rebuilt during import */ }
+}
+
+// ═══════════════════════════════════════════════
+//  CHECKPOINTS
+// ═══════════════════════════════════════════════
+function addCheckpoint() {
+  const km = parseFloat(document.getElementById('new-cp-km').value);
+  const name = document.getElementById('new-cp-name').value.trim() || ('Km '+km);
+  if (isNaN(km)||km<0) { alert('Kilométrage invalide.'); return; }
+  if (state.checkpoints.find(c=>c.km===km)) { alert('Ce km existe déjà.'); return; }
+  state.checkpoints.push({km,name,id:'cp_'+km});
+  state.checkpoints.sort((a,b)=>a.km-b.km);
+  document.getElementById('new-cp-km').value='';
+  document.getElementById('new-cp-name').value='';
+  saveState(); renderCheckpointList(); renderCpSelector(); updateCpFilter(); renderRanking(); updatePlistFilters(); renderPassagesList();
+}
+
+function removeCheckpoint(id) {
+  if (!confirm('Supprimer ce point ?')) return;
+  state.checkpoints = state.checkpoints.filter(c=>c.id!==id);
+  saveState(); renderCheckpointList(); renderCpSelector(); updateCpFilter(); renderRanking(); updatePlistFilters(); renderPassagesList();
+}
+
+function renderCheckpointList() {
+  const el = document.getElementById('checkpoint-list');
+  if (!el) return;
+  if (!state.checkpoints.length) { el.innerHTML='<div style="font-size:13px;color:var(--text3);">Aucun point. Ajoutez-en ci-dessous.</div>'; return; }
+  el.innerHTML = state.checkpoints.map(cp=>`
+    <div class="checkpoint-item">
+      <span>📍</span><span class="cp-km-label">Km ${cp.km}</span><span class="cp-name-label">${cp.name}</span>
+      <button class="cp-delete" onclick="removeCheckpoint('${cp.id}')">✕</button>
+    </div>`).join('');
+}
+
+function renderCpSelector() {
+  const el = document.getElementById('cp-selector');
+  if (!el) return;
+  if (!state.checkpoints.length) { el.innerHTML='<div style="font-size:13px;color:var(--text3);">Aucun point configuré dans Admin.</div>'; return; }
+  el.innerHTML = state.checkpoints.map(cp=>`<button class="cp-btn ${selectedCp===cp.id?'selected':''}" onclick="selectCp('${cp.id}')">📍 Km ${cp.km} — ${cp.name}</button>`).join('');
+}
+
+function updateCpFilter() {
+  const sel = document.getElementById('cp-filter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">Tous les points</option>' + state.checkpoints.map(cp=>`<option value="${cp.id}">📍 Km ${cp.km} — ${cp.name}</option>`).join('');
+  try { sel.value=cur; } catch(e){}
+}
+
+// ═══════════════════════════════════════════════
+//  VOLUNTEER
+// ═══════════════════════════════════════════════
+function selectCp(id) { selectedCp=id; renderCpSelector(); document.getElementById('confirm-msg').textContent=''; document.getElementById('bib-input').focus(); }
+function handleBibKey(e) { if (e.key==='Enter') recordBib(); }
+
+function recordBib() {
+  const bib = parseInt(document.getElementById('bib-input').value);
+  if (!bib||bib<=0) { showConfirm('Dossard invalide.',true); return; }
+  if (!selectedCp) { showConfirm("Sélectionnez d'abord un point de passage.",true); return; }
+  const cp = state.checkpoints.find(c=>c.id===selectedCp);
+  if (!cp) return;
+  const now = new Date(); const timeStr = now.toTimeString().slice(0,8);
+  const already = state.passages[bib]&&state.passages[bib][selectedCp];
+  if (!state.passages[bib]) state.passages[bib]={};
+  state.passages[bib][selectedCp]={time:timeStr,ts:now.getTime()};
+  saveState();
+  const runnerName = (state.runners&&state.runners[bib]) ? ` — ${state.runners[bib].name||state.runners[bib]}` : '';
+  const alreadyMsg = already ? ` (remplace ${already.time})` : '';
+  showConfirm(`✓ Dossard ${bib}${runnerName} — ${timeStr}${alreadyMsg}`,false);
+  // Reset voice UI if active
+  voicePendingBib = null;
+  const vp = document.getElementById('voice-preview');
+  if (vp) vp.classList.remove('show');
+  setVoiceState('idle');
+  recentBibs.unshift({bib,time:timeStr,cpName:cp.name});
+  if (recentBibs.length>10) recentBibs.pop();
+  renderRecentBibs();
+  document.getElementById('bib-input').value='';
+  document.getElementById('bib-input').focus();
+  renderRanking(); updateStats(); renderPassagesList();
+}
+
+function showConfirm(msg,isError) {
+  const el=document.getElementById('confirm-msg');
+  el.textContent=msg; el.style.color=isError?'#A32D2D':'#1D9E75';
+  setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; },4000);
+}
+
+function renderRecentBibs() {
+  const el=document.getElementById('recent-bibs');
+  if (!el) return;
+  if (!recentBibs.length) { el.innerHTML='<div style="font-size:13px;color:var(--text3);">Aucun passage enregistré.</div>'; return; }
+  el.innerHTML=recentBibs.map(r=>`<div class="bib-tag"><strong>${r.bib}</strong><span style="font-size:11px;color:var(--text3);">${r.cpName} • ${r.time}</span></div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  RANKING
+// ═══════════════════════════════════════════════
+function getRunnerProgress(bib) {
+  const passages = state.passages[bib]||{};
+  let count=0,lastTs=0,lastCp=null;
+  for (const cp of state.checkpoints) {
+    if (passages[cp.id]) { count++; if (passages[cp.id].ts>lastTs) { lastTs=passages[cp.id].ts; lastCp=cp; } }
+  }
+  return {count,lastTs,lastCp,passages};
+}
+
+function getRunnerName(bib) {
+  if (!state.runners || !state.runners[bib]) return null;
+  const r = state.runners[bib];
+  return typeof r === 'object' ? r.name : r;
+}
+
+function getRunnerFormat(bib) {
+  if (!state.runners || !state.runners[bib]) return null;
+  const r = state.runners[bib];
+  return typeof r === 'object' ? (r.format || null) : null;
+}
+
+// ═══════════════════════════════════════════════
+//  CP FILTER LOGIC
+// ═══════════════════════════════════════════════
+function onCpFilterChange() {
+  const val = document.getElementById('cp-filter').value;
+  const banner = document.getElementById('active-filter-bar');
+  const label  = document.getElementById('active-filter-label');
+  if (val !== 'all') {
+    const cp = state.checkpoints.find(c => c.id === val);
+    if (cp) label.textContent = `📍 Classement au point : Km ${cp.km} — ${cp.name}`;
+    banner.style.display = 'flex';
+    // Force sort to "last-time" for checkpoint ranking
+    document.getElementById('sort-filter').value = 'last-time';
+  } else {
+    banner.style.display = 'none';
+  }
+  renderRanking();
+}
+
+function clearCpFilter() {
+  document.getElementById('cp-filter').value = 'all';
+  document.getElementById('active-filter-bar').style.display = 'none';
+  renderRanking();
+}
+
+function renderRanking() {
+  const container = document.getElementById('ranking-container');
+  if (!container) return;
+  const cpFilter = document.getElementById('cp-filter').value;
+  const sortBy = document.getElementById('sort-filter').value;
+  const searchQ = (document.getElementById('search-input').value||'').trim().toLowerCase();
+
+  // Determine which formats to show
+  const hasFormats = state.formats && state.formats.length >= 2;
+
+  if (hasFormats && activeFormatFilter !== 'all') {
+    // Single format view
+    renderFormatBlock(container, activeFormatFilter, cpFilter, sortBy, searchQ, false);
+  } else if (hasFormats) {
+    // All formats - show each section
+    let html = '';
+    // First: runners without a format (if any)
+    const noFormatBibs = getAllBibs(cpFilter, searchQ).filter(bib => !getRunnerFormat(bib));
+    const allFormatBibs = state.formats.flatMap(f => getAllBibs(cpFilter, searchQ).filter(bib => getRunnerFormat(bib) === f.code));
+
+    let allHTML = '';
+    state.formats.forEach(fmt => {
+      const bibs = getAllBibs(cpFilter, searchQ).filter(bib => getRunnerFormat(bib) === fmt.code);
+      if (bibs.length === 0) return;
+      allHTML += buildFormatSection(fmt, bibs, sortBy);
+    });
+    if (noFormatBibs.length > 0) {
+      allHTML += buildFormatSection(null, noFormatBibs, sortBy);
+    }
+    container.innerHTML = allHTML || `<div class="table-wrap"><div class="empty-state"><div class="empty-icon">🚩</div><div style="font-size:15px;font-weight:600;">Aucun coureur enregistré</div></div></div>`;
+  } else {
+    // No formats - single table
+    let allBibs = getAllBibs(cpFilter, searchQ);
+    if (!allBibs.length) {
+      const emptyMsg = showOnlyFavs
+        ? `<div class="table-wrap"><div class="fav-empty"><div class="fav-empty-icon">⭐</div><div class="fav-empty-text">Aucun favori pour cette course</div><div class="fav-empty-sub">Cliquez sur l'étoile ☆ d'un coureur pour l'ajouter à vos favoris</div></div></div>`
+        : `<div class="table-wrap"><div class="empty-state"><div class="empty-icon">🚩</div><div style="font-size:15px;font-weight:600;">Aucun coureur enregistré</div><div style="font-size:13px;margin-top:6px;color:var(--text3);">Les bénévoles saisissent les dossards dans l'onglet Bénévole</div></div></div>`;
+      container.innerHTML = emptyMsg;
+      updateStats(); return;
+    }
+    container.innerHTML = `<div class="table-wrap">${buildTable(allBibs, sortBy)}</div>`;
+  }
+  updateStats();
+}
+
+function getAllBibs(cpFilter, searchQ) {
+  let allBibs = [];
+  // Include runners from passages + runners list
+  const bibSet = new Set([...Object.keys(state.passages).map(Number)]);
+  if (state.runners) Object.keys(state.runners).forEach(b => bibSet.add(Number(b)));
+  allBibs = [...bibSet];
+  if (cpFilter !== 'all') allBibs = allBibs.filter(bib => state.passages[bib] && state.passages[bib][cpFilter]);
+  if (searchQ) allBibs = allBibs.filter(bib => String(bib).includes(searchQ) || (getRunnerName(bib)||'').toLowerCase().includes(searchQ));
+  if (showOnlyFavs) allBibs = allBibs.filter(bib => favoriteBibs.has(bib));
+  return allBibs;
+}
+
+function buildFormatSection(fmt, bibs, sortBy) {
+  const fmtTitle = fmt ? `<div class="format-color-dot" style="background:${fmt.color};width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px;"></div>${fmt.code} — ${fmt.label}` : 'Sans format';
+  const color = fmt ? fmt.color : '#888';
+  return `
+    <div class="table-wrap" style="margin-bottom:12px;">
+      <div class="ranking-section-header">
+        <div class="ranking-section-title" style="color:${color};">${fmtTitle}</div>
+        <span class="ranking-section-count">${bibs.length} coureur${bibs.length>1?'s':''}</span>
+      </div>
+      ${buildTable(bibs, sortBy)}
+    </div>`;
+}
+
+function buildTable(bibs, sortBy) {
+  const cpFilter = document.getElementById('cp-filter').value;
+  const cpMode = cpFilter !== 'all';
+  const cpInfo = cpMode ? state.checkpoints.find(c => c.id === cpFilter) : null;
+
+  let sorted = [...bibs];
+  if (cpMode) {
+    // Sort by time at that specific checkpoint
+    sorted.sort((a, b) => {
+      const ta = (state.passages[a] && state.passages[a][cpFilter]) ? state.passages[a][cpFilter].ts : Infinity;
+      const tb = (state.passages[b] && state.passages[b][cpFilter]) ? state.passages[b][cpFilter].ts : Infinity;
+      return ta - tb;
+    });
+  } else if (sortBy==='progress') {
+    sorted.sort((a,b)=>{ const pa=getRunnerProgress(a),pb=getRunnerProgress(b); if(pb.count!==pa.count) return pb.count-pa.count; return pa.lastTs-pb.lastTs; });
+  } else if (sortBy==='last-time') {
+    sorted.sort((a,b)=>getRunnerProgress(a).lastTs-getRunnerProgress(b).lastTs);
+  } else {
+    sorted.sort((a,b)=>a-b);
+  }
+
+  const total = state.checkpoints.length;
+  const hasFormats = state.formats && state.formats.length > 0;
+
+  // Compute leader reference time for gap calculation
+  let leaderTs = 0;
+  if (cpMode && sorted.length > 0) {
+    const leaderBib = sorted[0];
+    const lp = state.passages[leaderBib] && state.passages[leaderBib][cpFilter];
+    leaderTs = lp ? lp.ts : 0;
+  } else if (sorted.length > 0) {
+    const leaderProg = getRunnerProgress(sorted[0]);
+    leaderTs = leaderProg.lastTs || 0;
+  }
+
+  // Header changes based on mode
+  const cpColHeader = cpMode
+    ? `<th>⏱ Heure à Km ${cpInfo ? cpInfo.km : ''}</th>`
+    : `<th>Dernier point</th><th>Heure</th>`;
+
+  let html = `<table class="ranking-table"><thead><tr>
+    <th style="width:32px;"></th><th>#</th><th>Dossard</th><th>Coureur</th>${hasFormats?'<th>Format</th>':''}
+    ${cpColHeader}<th>Écart 1er</th><th>Avancement</th><th></th>
+  </tr></thead><tbody>`;
+
+  sorted.forEach((bib, idx) => {
+    const prog = getRunnerProgress(bib);
+    const name = getRunnerName(bib) || '<span style="color:var(--text3);">—</span>';
+    const fmt = getRunnerFormat(bib);
+    const fmtInfo = fmt ? getFormatInfo(fmt) : null;
+    const rankClass = idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':'';
+    const medal = idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':'';
+
+    let dotsHtml = '<div class="cp-dots">';
+    for (const cp of state.checkpoints) { const p=prog.passages[cp.id]; dotsHtml+=`<div class="cp-dot ${p?'passed':'pending'}" title="${cp.name}: ${p?p.time:'non passé'}"></div>`; }
+    dotsHtml+='</div>';
+
+    const pct = total>0 ? Math.round((prog.count/total)*100) : 0;
+    const fmtCell = hasFormats ? `<td>${fmtInfo?`<span class="format-badge" style="background:${fmtInfo.color}22;color:${fmtInfo.color};border:1px solid ${fmtInfo.color}44;">${fmtInfo.code}</span>`:'<span style="color:var(--text3);font-size:11px;">—</span>'}</td>` : '';
+
+    let cpCols;
+    if (cpMode) {
+      const p = state.passages[bib] && state.passages[bib][cpFilter];
+      cpCols = `<td>${p ? `<span class="time-at-cp">${p.time}</span>` : '<span style="color:var(--text3);">—</span>'}</td>`;
+    } else {
+      cpCols = `<td style="font-size:12px;color:var(--text2);">${prog.lastCp?`Km ${prog.lastCp.km}<br><span style="color:var(--text3);font-size:11px;">${prog.lastCp.name}</span>`:'<span style="color:var(--text3);">—</span>'}</td>
+      <td style="font-family:monospace;font-size:12px;">${prog.lastTs?new Date(prog.lastTs).toTimeString().slice(0,8):'<span style="color:var(--text3);">—</span>'}</td>`;
+    }
+
+    // Gap calculation
+    let gapCell = '';
+    if (idx === 0) {
+      gapCell = '<td><span class="gap-cell leader">LEADER</span></td>';
+    } else {
+      let runnerTs = 0;
+      if (cpMode) {
+        const p = state.passages[bib] && state.passages[bib][cpFilter];
+        runnerTs = p ? p.ts : 0;
+      } else {
+        runnerTs = prog.lastTs || 0;
+      }
+      if (leaderTs > 0 && runnerTs > 0) {
+        const diffMs = runnerTs - leaderTs;
+        const diffSec = Math.round(diffMs / 1000);
+        const h = Math.floor(diffSec / 3600);
+        const m = Math.floor((diffSec % 3600) / 60);
+        const s = diffSec % 60;
+        const gapStr = h > 0
+          ? `+${h}h${String(m).padStart(2,'0')}'${String(s).padStart(2,'0')}`
+          : `+${m}'${String(s).padStart(2,'0')}"`;
+        const gapClass = diffSec < 300 ? 'gap-small' : 'gap-big';
+        gapCell = `<td><span class="gap-cell ${gapClass}">${gapStr}</span></td>`;
+      } else {
+        gapCell = '<td><span class="gap-cell">—</span></td>';
+      }
+    }
+
+    const isFav = favoriteBibs.has(bib);
+    const starCell = `<td style="padding:10px 4px 10px 10px;"><button class="fav-star ${isFav?'active':''}" onclick="event.stopPropagation();toggleFavorite(${bib})" title="${isFav?'Retirer des favoris':'Ajouter aux favoris'}">⭐</button></td>`;
+
+    html+=`<tr class="${rankClass}" onclick="showRunnerDetail(${bib})" style="cursor:pointer;">
+      ${starCell}
+      <td><span class="rank-num">${medal||(idx+1)}</span></td>
+      <td><span class="bib-badge">${bib}</span></td>
+      <td style="font-size:13px;">${name}</td>
+      ${fmtCell}
+      ${cpCols}
+      ${gapCell}
+      <td><div style="display:flex;align-items:center;gap:7px;"><div class="prog-bar-wrap" style="width:65px;"><div class="prog-bar-fill" style="width:${pct}%"></div></div><span style="font-size:11px;color:var(--text3);">${prog.count}/${total}</span></div>${dotsHtml}</td>
+      <td style="font-size:11px;color:var(--text3);">›</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function updateStats() {
+  const bibSet = new Set([...Object.keys(state.passages).map(Number)]);
+  if (state.runners) Object.keys(state.runners).forEach(b => bibSet.add(Number(b)));
+  const el1=document.getElementById('stat-runners'), el2=document.getElementById('stat-checkpoints'), el3=document.getElementById('stat-scans');
+  if (!el1) return;
+  el1.textContent = bibSet.size;
+  el2.textContent = state.checkpoints.length;
+  let total=0; Object.keys(state.passages).forEach(bib=>{ total+=Object.keys(state.passages[bib]).length; });
+  el3.textContent = total;
+}
+
+function showRunnerDetail(bib) {
+  const prog = getRunnerProgress(bib);
+  const name = getRunnerName(bib) || `Dossard ${bib}`;
+  const fmt = getRunnerFormat(bib);
+  const fmtInfo = fmt ? getFormatInfo(fmt) : null;
+  document.getElementById('modal-title-text').innerHTML = `${name} — #${bib}${fmtInfo?` <span style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:5px;background:${fmtInfo.color}22;color:${fmtInfo.color};">${fmtInfo.code}</span>`:''}`;
+  let html = state.checkpoints.length===0 ? '<div style="color:var(--text3);font-size:13px;">Aucun point de passage.</div>' :
+    state.checkpoints.map(cp=>{ const p=prog.passages[cp.id]; return `<div class="modal-row"><span>📍 Km ${cp.km} — ${cp.name}</span><span class="${p?'cp-status-passed':'cp-status-pending'}">${p?p.time:'Non passé'}</span></div>`; }).join('');
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) { if (e.target===document.getElementById('modal-overlay')) document.getElementById('modal-overlay').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════
+//  RUNNERS
+// ═══════════════════════════════════════════════
+function addRunner() {
+  const bib = parseInt(document.getElementById('new-runner-bib').value);
+  const name = document.getElementById('new-runner-name').value.trim();
+  const format = document.getElementById('new-runner-format').value;
+  if (!bib||!name) { alert('Entrez dossard et nom.'); return; }
+  if (!state.runners) state.runners={};
+  state.runners[bib] = { name, format: format||null };
+  document.getElementById('new-runner-bib').value='';
+  document.getElementById('new-runner-name').value='';
+  document.getElementById('new-runner-format').value='';
+  saveState(); renderRunnerNameList(); renderRanking();
+}
+
+function renderRunnerNameList() {
+  const el=document.getElementById('runner-name-list');
+  if (!el) return;
+  if (!state.runners||!Object.keys(state.runners).length) { el.innerHTML='<div style="font-size:13px;color:var(--text3);padding:4px 8px;">Aucun coureur.</div>'; return; }
+  el.innerHTML = Object.keys(state.runners).map(Number).sort((a,b)=>a-b).map(bib => {
+    const r = state.runners[bib];
+    const name = typeof r==='object' ? r.name : r;
+    const fmt = typeof r==='object' ? r.format : null;
+    const fmtInfo = fmt ? getFormatInfo(fmt) : null;
+    return `<div class="name-item" id="runner-item-${bib}">
+      <span class="name-bib">${bib}</span>
+      <span class="name-str">${name}</span>
+      ${fmtInfo?`<span class="name-format" style="background:${fmtInfo.color}22;color:${fmtInfo.color};">${fmtInfo.code}</span>`:''}
+      <button class="btn" style="padding:3px 9px;font-size:11px;margin-left:auto;" onclick="editRunner(${bib})">✏️</button>
+      <button class="del-name" onclick="deleteRunner(${bib})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteRunner(bib) { if (state.runners) { delete state.runners[bib]; saveState(); renderRunnerNameList(); renderRanking(); } }
+
+// ═══════════════════════════════════════════════
+//  EDIT RUNNER (admin)
+// ═══════════════════════════════════════════════
+function editRunner(bib) {
+  // Cancel any existing open edit
+  document.querySelectorAll('.name-item.editing').forEach(el => {
+    const b = parseInt(el.id.replace('runner-item-',''));
+    cancelRunnerEdit(b, false);
+  });
+  const item = document.getElementById('runner-item-'+bib);
+  if (!item) return;
+  const r = state.runners[bib];
+  const name = typeof r==='object' ? r.name : r;
+  const fmt = typeof r==='object' ? (r.format||'') : '';
+  item.classList.add('editing');
+  const fmtOptions = (state.formats||[]).map(f =>
+    `<option value="${f.code}" ${fmt===f.code?'selected':''}>${f.code} — ${f.label}</option>`
+  ).join('');
+  item.innerHTML = `
+    <span class="name-bib">${bib}</span>
+    <div class="edit-runner-form">
+      <input class="form-input" id="edit-name-${bib}" type="text" value="${name}" placeholder="Prénom Nom" style="flex:1;min-width:140px;" onkeydown="if(event.key==='Enter') saveRunnerEdit(${bib}); if(event.key==='Escape') cancelRunnerEdit(${bib});" />
+      <select class="form-input" id="edit-format-${bib}" style="width:110px;">
+        <option value="">Format…</option>
+        ${fmtOptions}
+      </select>
+      <button class="btn btn-green" style="padding:6px 14px;font-size:12px;" onclick="saveRunnerEdit(${bib})">✓ Sauver</button>
+      <button class="btn" style="padding:6px 12px;font-size:12px;" onclick="cancelRunnerEdit(${bib})">Annuler</button>
+    </div>`;
+  document.getElementById('edit-name-'+bib).focus();
+}
+
+function saveRunnerEdit(bib) {
+  const nameEl = document.getElementById('edit-name-'+bib);
+  const fmtEl  = document.getElementById('edit-format-'+bib);
+  if (!nameEl) return;
+  const newName = nameEl.value.trim();
+  if (!newName) { nameEl.focus(); return; }
+  const newFmt = fmtEl ? fmtEl.value : '';
+  state.runners[bib] = { name: newName, format: newFmt||null };
+  saveState(); renderRunnerNameList(); renderRanking();
+}
+
+function cancelRunnerEdit(bib, rerender=true) {
+  if (rerender) renderRunnerNameList();
+}
+
+// ═══════════════════════════════════════════════
+//  MAP IMAGE
+// ═══════════════════════════════════════════════
+function handleMapImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('Veuillez choisir une image.'); return; }
+  if (file.size > 3 * 1024 * 1024) { alert('Image trop lourde (max 3 Mo). Compressez-la avant de l\'importer.'); return; }
+  const reader = new FileReader();
+  reader.onload = e => { state.mapImage = e.target.result; saveState(); updateMapImage(); };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function updateMapImage() {
+  const img = document.getElementById('map-image');
+  const placeholder = document.getElementById('map-placeholder');
+  const adminControls = document.getElementById('map-admin-controls');
+  const uploadLabelMain = document.getElementById('map-upload-label-main');
+  if (!img) return;
+  if (state.mapImage) {
+    img.src = state.mapImage;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = '';
+    if (uploadLabelMain) uploadLabelMain.style.display = currentRole==='admin' ? 'inline-flex' : 'none';
+  }
+  if (adminControls) adminControls.style.display = currentRole==='admin' ? 'flex' : 'none';
+}
+
+function removeMapImage() {
+  if (!confirm('Supprimer la carte ?')) return;
+  state.mapImage = null; saveState(); updateMapImage();
+}
+
+// ═══════════════════════════════════════════════
+//  IMPORT CSV / EXCEL
+// ═══════════════════════════════════════════════
+function handleDragOver(e) { e.preventDefault(); document.getElementById('import-zone').classList.add('drag-over'); }
+function handleDragLeave(e) { document.getElementById('import-zone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('import-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processImportFile(file);
+}
+function handleImportFile(e) { const file=e.target.files[0]; if (file) processImportFile(file); e.target.value=''; }
+
+function processImportFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['csv','xlsx','xls'].includes(ext)) { alert('Format non supporté. Utilisez .csv, .xlsx ou .xls'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      let rows = [];
+      if (ext === 'csv') {
+        const text = e.target.result;
+        rows = parseCSV(text);
+      } else {
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      }
+      if (!rows.length) { alert('Fichier vide.'); return; }
+      importData = rows;
+      importHeaders = rows[0].map(String);
+      showImportPanel();
+    } catch(err) { alert('Erreur de lecture : ' + err.message); }
+  };
+  if (ext === 'csv') reader.readAsText(file, 'UTF-8');
+  else reader.readAsArrayBuffer(file);
+}
+
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
+  return lines.map(line => {
+    const cols = []; let inQ=false, cur='';
+    for (let i=0; i<line.length; i++) {
+      const c=line[i];
+      if (c==='"') { inQ=!inQ; }
+      else if ((c===','||c===';') && !inQ) { cols.push(cur.trim()); cur=''; }
+      else { cur+=c; }
+    }
+    cols.push(cur.trim()); return cols;
+  });
+}
+
+function showImportPanel() {
+  document.getElementById('import-panel').style.display = '';
+  const headers = importHeaders;
+  const makeOpts = (sel) => headers.map((h,i) => `<option value="${i}" ${h.toLowerCase().includes(sel)?'selected':''}>${h}</option>`).join('');
+  document.getElementById('col-bib').innerHTML = makeOpts('dossard');
+  document.getElementById('col-name').innerHTML = makeOpts('nom');
+  const fmtSel = document.getElementById('col-format');
+  fmtSel.innerHTML = '<option value="">— non défini —</option>' + headers.map((h,i) => `<option value="${i}" ${(h.toLowerCase().includes('format')||h.toLowerCase().includes('course')||h.toLowerCase().includes('distance'))?'selected':''}>${h}</option>`).join('');
+  renderImportPreview();
+}
+
+function renderImportPreview() {
+  const bibCol = parseInt(document.getElementById('col-bib').value);
+  const nameCol = parseInt(document.getElementById('col-name').value);
+  const fmtCol = document.getElementById('col-format').value;
+  const rows = importData.slice(1, 8);
+  const el = document.getElementById('import-preview');
+  el.innerHTML = `<table><thead><tr><th>Dossard</th><th>Nom</th>${fmtCol!==''?'<th>Format</th>':''}</tr></thead><tbody>` +
+    rows.map(row => `<tr><td>${row[bibCol]||''}</td><td>${row[nameCol]||''}</td>${fmtCol!==''?`<td>${row[parseInt(fmtCol)]||''}</td>`:''}</tr>`).join('') +
+    `</tbody></table>`;
+}
+
+// Make preview update on change
+document.addEventListener('change', e => { if (['col-bib','col-name','col-format'].includes(e.target.id)) renderImportPreview(); });
+
+function confirmImport() {
+  const bibCol = parseInt(document.getElementById('col-bib').value);
+  const nameCol = parseInt(document.getElementById('col-name').value);
+  const fmtColEl = document.getElementById('col-format');
+  const fmtCol = fmtColEl.value !== '' ? parseInt(fmtColEl.value) : null;
+  if (!state.runners) state.runners = {};
+  let added=0, skipped=0;
+  for (let i=1; i<importData.length; i++) {
+    const row = importData[i];
+    const bib = parseInt(row[bibCol]);
+    const name = (row[nameCol]||'').toString().trim();
+    if (!bib || !name) { skipped++; continue; }
+    const fmt = fmtCol !== null ? (row[fmtCol]||'').toString().trim().toUpperCase() || null : null;
+    state.runners[bib] = { name, format: fmt };
+    added++;
+  }
+  saveState(); renderRunnerNameList(); renderRanking();
+  document.getElementById('import-msg').innerHTML = `<span style="color:var(--success);font-weight:600;">✓ ${added} coureur${added>1?'s':''} importé${added>1?'s':''}${skipped?' ('+skipped+' ligne(s) ignorée(s))':''}</span>`;
+  importData = null; importHeaders = [];
+  setTimeout(() => { document.getElementById('import-panel').style.display='none'; document.getElementById('import-msg').textContent=''; }, 3000);
+}
+
+function cancelImport() { importData=null; importHeaders=[]; document.getElementById('import-panel').style.display='none'; }
+
+// ═══════════════════════════════════════════════
+//  LISTE DES PASSAGES
+// ═══════════════════════════════════════════════
+function updatePlistFilters() {
+  // CP filter
+  const cpSel = document.getElementById('plist-cp-filter');
+  if (!cpSel) return;
+  const curCp = cpSel.value;
+  cpSel.innerHTML = '<option value="all">Tous les points</option>' +
+    state.checkpoints.map(cp => `<option value="${cp.id}">📍 Km ${cp.km} — ${cp.name}</option>`).join('');
+  try { cpSel.value = curCp; } catch(e){}
+
+  // Format filter
+  const fmtSel = document.getElementById('plist-format-filter');
+  if (!fmtSel) return;
+  const curFmt = fmtSel.value;
+  const hasFormats = state.formats && state.formats.length > 0;
+  fmtSel.style.display = hasFormats ? '' : 'none';
+  if (hasFormats) {
+    fmtSel.innerHTML = '<option value="all">Tous les formats</option>' +
+      state.formats.map(f => `<option value="${f.code}">${f.code} — ${f.label}</option>`).join('') +
+      '<option value="__none__">Sans format</option>';
+    try { fmtSel.value = curFmt; } catch(e){}
+  }
+}
+
+function sortPassages(col) {
+  if (passagesSort.col === col) {
+    passagesSort.dir = passagesSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    passagesSort.col = col;
+    passagesSort.dir = col === 'time' ? 'desc' : 'asc';
+  }
+  renderPassagesList();
+}
+
+function renderPassagesList() {
+  const tbody = document.getElementById('passages-table-body');
+  const countEl = document.getElementById('plist-count');
+  if (!tbody) return;
+
+  const cpFilterVal = (document.getElementById('plist-cp-filter') || {}).value || 'all';
+  const fmtFilterVal = (document.getElementById('plist-format-filter') || {}).value || 'all';
+  const searchQ = ((document.getElementById('plist-search') || {}).value || '').trim().toLowerCase();
+
+  // Build flat list of all individual passage records
+  let rows = [];
+  Object.keys(state.passages).forEach(bibStr => {
+    const bib = parseInt(bibStr);
+    const bibPassages = state.passages[bibStr] || {};
+    Object.keys(bibPassages).forEach(cpId => {
+      const cp = state.checkpoints.find(c => c.id === cpId);
+      const passage = bibPassages[cpId];
+      rows.push({
+        bib,
+        cpId,
+        cpName: cp ? cp.name : cpId,
+        cpKm: cp ? cp.km : 999,
+        time: passage.time || '',
+        ts: passage.ts || 0,
+        name: getRunnerName(bib) || '',
+        format: getRunnerFormat(bib) || ''
+      });
+    });
+  });
+
+  // Filter
+  if (cpFilterVal !== 'all') rows = rows.filter(r => r.cpId === cpFilterVal);
+  if (fmtFilterVal !== 'all') {
+    if (fmtFilterVal === '__none__') rows = rows.filter(r => !r.format);
+    else rows = rows.filter(r => r.format === fmtFilterVal);
+  }
+  if (searchQ) rows = rows.filter(r =>
+    String(r.bib).includes(searchQ) || r.name.toLowerCase().includes(searchQ)
+  );
+
+  // Sort
+  const { col, dir } = passagesSort;
+  const mult = dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    let va, vb;
+    if (col === 'bib')    { va = a.bib;    vb = b.bib; }
+    else if (col === 'name')   { va = a.name.toLowerCase();  vb = b.name.toLowerCase(); }
+    else if (col === 'format') { va = a.format.toLowerCase(); vb = b.format.toLowerCase(); }
+    else if (col === 'cp')     { va = a.cpKm;   vb = b.cpKm; }
+    else                       { va = a.ts;     vb = b.ts; }
+    if (va < vb) return -1 * mult;
+    if (va > vb) return  1 * mult;
+    return 0;
+  });
+
+  // Update sort arrows in thead
+  document.querySelectorAll('.passages-table th[data-col]').forEach(th => {
+    const c = th.getAttribute('data-col');
+    const arrow = th.querySelector('.sort-arrow');
+    th.classList.toggle('sorted', c === col);
+    if (arrow) arrow.textContent = (c === col) ? (dir === 'asc' ? '↑' : '↓') : '↕';
+  });
+
+  // Update count
+  const n = rows.length;
+  if (countEl) countEl.textContent = n === 0 ? 'Aucun passage' : `${n} passage${n > 1 ? 's' : ''}`;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3);font-size:13px;">Aucun passage correspondant.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const fmtInfo = r.format ? getFormatInfo(r.format) : null;
+    const fmtCell = fmtInfo
+      ? `<span class="format-badge" style="background:${fmtInfo.color}22;color:${fmtInfo.color};border:1px solid ${fmtInfo.color}44;">${fmtInfo.code}</span>`
+      : `<span style="color:var(--text3);font-size:11px;">—</span>`;
+    const canDelete = currentRole === 'admin' || currentRole === 'benevole';
+    return `<tr>
+      <td><span class="bib-badge">${r.bib}</span></td>
+      <td style="font-size:13px;">${r.name || '<span style="color:var(--text3);">—</span>'}</td>
+      <td>${fmtCell}</td>
+      <td><span class="cp-pill">📍 Km ${r.cpKm} — ${r.cpName}</span></td>
+      <td><span class="passage-time-badge">${r.time}</span></td>
+      <td style="text-align:right;">${canDelete ? `<button class="passage-del-btn" onclick="deletePassage(${r.bib},'${r.cpId}')" title="Supprimer ce passage">✕</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function deletePassage(bib, cpId) {
+  const cp = state.checkpoints.find(c => c.id === cpId);
+  const runnerName = getRunnerName(bib) || `#${bib}`;
+  const cpLabel = cp ? `Km ${cp.km} — ${cp.name}` : cpId;
+  if (!confirm(`Supprimer le passage de ${runnerName} au point "${cpLabel}" ?`)) return;
+  if (state.passages[bib]) {
+    delete state.passages[bib][cpId];
+    if (Object.keys(state.passages[bib]).length === 0) delete state.passages[bib];
+  }
+  saveState(); renderRanking(); updateStats(); renderPassagesList();
+}
+
+// ═══════════════════════════════════════════════
+//  MISC
+// ═══════════════════════════════════════════════
+function clearPassages() { state.passages={}; saveState(); renderRanking(); renderRecentBibs(); updateStats(); renderPassagesList(); }
+
+function exportCSV() {
+  let csv = 'Dossard,Nom,Format';
+  state.checkpoints.forEach(cp=>{ csv+=`,Km ${cp.km} (${cp.name})`; });
+  csv+='\n';
+  const bibSet = new Set([...Object.keys(state.passages).map(Number)]);
+  if (state.runners) Object.keys(state.runners).forEach(b=>bibSet.add(Number(b)));
+  [...bibSet].sort((a,b)=>a-b).forEach(bib=>{
+    const name = getRunnerName(bib)||'';
+    const fmt = getRunnerFormat(bib)||'';
+    let row=`${bib},"${name}","${fmt}"`;
+    state.checkpoints.forEach(cp=>{ const p=(state.passages[bib]||{})[cp.id]; row+=','+(p?p.time:''); });
+    csv+=row+'\n';
+  });
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(state.raceName||'course').replace(/\s+/g,'_')+'_resultats.csv'; a.click();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const btn = document.querySelector(`.tab[data-tabname="${name}"]`);
+  if (btn) btn.classList.add('active');
+  const panel = document.getElementById('panel-'+name);
+  if (panel) panel.classList.add('active');
+  if (name==='classement') updateMapImage();
+  if (name==='benevole') {
+    // Init voice on first access
+    if (!voiceRecognition) setTimeout(initVoice, 100);
+  }
+  if (name==='team') {
+    renderMissionList(); renderVolunteerList(); updateVolunteerStats(); updateVolMissionSelects();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  EXPORT CSV PASSAGES
+// ═══════════════════════════════════════════════
+function exportPassagesCSV() {
+  const cpFilterVal = (document.getElementById('plist-cp-filter') || {}).value || 'all';
+  const fmtFilterVal = (document.getElementById('plist-format-filter') || {}).value || 'all';
+  const searchQ = ((document.getElementById('plist-search') || {}).value || '').trim().toLowerCase();
+
+  let rows = [];
+  Object.keys(state.passages).forEach(bibStr => {
+    const bib = parseInt(bibStr);
+    const bibPassages = state.passages[bibStr] || {};
+    Object.keys(bibPassages).forEach(cpId => {
+      const cp = state.checkpoints.find(c => c.id === cpId);
+      const passage = bibPassages[cpId];
+      rows.push({
+        bib, cpId,
+        cpName: cp ? cp.name : cpId,
+        cpKm: cp ? cp.km : 999,
+        time: passage.time || '',
+        ts: passage.ts || 0,
+        name: getRunnerName(bib) || '',
+        format: getRunnerFormat(bib) || ''
+      });
+    });
+  });
+
+  if (cpFilterVal !== 'all') rows = rows.filter(r => r.cpId === cpFilterVal);
+  if (fmtFilterVal !== 'all') {
+    if (fmtFilterVal === '__none__') rows = rows.filter(r => !r.format);
+    else rows = rows.filter(r => r.format === fmtFilterVal);
+  }
+  if (searchQ) rows = rows.filter(r =>
+    String(r.bib).includes(searchQ) || r.name.toLowerCase().includes(searchQ)
+  );
+  rows.sort((a, b) => a.cpKm - b.cpKm || a.ts - b.ts);
+
+  let csv = 'Dossard,Nom,Format,Point de passage,Km,Heure\n';
+  rows.forEach(r => {
+    csv += `${r.bib},"${r.name}","${r.format}","${r.cpName}",${r.cpKm},"${r.time}"\n`;
+  });
+
+  const label = cpFilterVal !== 'all'
+    ? (state.checkpoints.find(c => c.id === cpFilterVal) || {}).name || 'cp'
+    : 'tous_passages';
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.raceName || 'course').replace(/\s+/g, '_') + '_' + label.replace(/\s+/g, '_') + '.csv';
+  a.click();
+}
+
+// ═══════════════════════════════════════════════
+//  BAR CHART RACE
+// ═══════════════════════════════════════════════
+let bcrState = {
+  steps: [],        // [{cpId, cpName, cpKm, runners: [{bib, name, time, ts}]}]
+  currentStep: 0,
+  playing: false,
+  timer: null,
+  speed: 1200,
+  formatFilter: 'all'  // which format to show in BCR
+};
+
+const BCR_COLORS = [
+  '#FC4C02','#3B82F6','#1D9E75','#F59E0B','#8B5CF6',
+  '#EC4899','#06B6D4','#84CC16','#F97316','#A78BFA'
+];
+const bcrBibColors = {};
+
+function getBcrColor(bib) {
+  if (!bcrBibColors[bib]) {
+    const keys = Object.keys(bcrBibColors);
+    bcrBibColors[bib] = BCR_COLORS[keys.length % BCR_COLORS.length];
+  }
+  return bcrBibColors[bib];
+}
+
+function openBarChartRace() {
+  // Check data
+  if (!state.checkpoints.length) {
+    alert('Aucun point de passage configuré.');
+    return;
+  }
+  const totalPassages = Object.keys(state.passages).length;
+  if (!totalPassages) {
+    alert('Aucun passage enregistré.');
+    return;
+  }
+
+  // Determine format filter (use active format tab if any)
+  bcrState.formatFilter = activeFormatFilter || 'all';
+
+  // Build steps: one per checkpoint
+  buildBcrSteps();
+
+  if (!bcrState.steps.length) {
+    alert('Pas assez de données pour générer un Bar Chart Race.');
+    return;
+  }
+
+  bcrState.currentStep = 0;
+  bcrState.playing = false;
+  clearTimeout(bcrState.timer);
+
+  // Reset DOM rows cache and clear chart container
+  bcrDomRows = {};
+  const container = document.getElementById('bcr-chart-container');
+  if (container) container.innerHTML = '';
+
+  // Update subtitle
+  const hasFormats = state.formats && state.formats.length >= 2;
+  let sub = 'Top 10 coureurs';
+  if (hasFormats && bcrState.formatFilter !== 'all') {
+    const fmt = state.formats.find(f => f.code === bcrState.formatFilter);
+    if (fmt) sub += ` — ${fmt.code} : ${fmt.label}`;
+  }
+  document.getElementById('bcr-modal-subtitle').textContent = sub;
+
+  document.getElementById('bcr-overlay').classList.add('open');
+  renderBcrStep();
+}
+
+function buildBcrSteps() {
+  // For each checkpoint (sorted by km), compute top 10 runners by time at that CP
+  // We use cumulative: at CP n, rank by time at CP n (if passed) else not shown
+  // Actually: "classement évolutif" = at each CP, show runners ranked by their time at THAT cp
+  // We'll show runners who have passed that specific CP, sorted by time
+
+  bcrState.steps = [];
+  Object.keys(bcrBibColors); // reset — we keep colors stable per bib
+
+  const sortedCps = [...state.checkpoints].sort((a, b) => a.km - b.km);
+
+  sortedCps.forEach(cp => {
+    let runners = [];
+    Object.keys(state.passages).forEach(bibStr => {
+      const bib = parseInt(bibStr);
+      // Format filter
+      if (bcrState.formatFilter !== 'all') {
+        if (getRunnerFormat(bib) !== bcrState.formatFilter) return;
+      }
+      const p = state.passages[bibStr][cp.id];
+      if (!p) return;
+      runners.push({
+        bib,
+        name: getRunnerName(bib) || `#${bib}`,
+        time: p.time,
+        ts: p.ts || 0
+      });
+    });
+    if (runners.length === 0) return;
+    runners.sort((a, b) => a.ts - b.ts);
+    const top10 = runners.slice(0, 10);
+    bcrState.steps.push({ cpId: cp.id, cpName: cp.name, cpKm: cp.km, runners: top10 });
+  });
+}
+
+function closeBcr() {
+  clearTimeout(bcrState.timer);
+  bcrState.playing = false;
+  bcrDomRows = {};
+  const container = document.getElementById('bcr-chart-container');
+  if (container) container.innerHTML = '';
+  document.getElementById('bcr-overlay').classList.remove('open');
+  document.getElementById('bcr-play-btn').textContent = '▶';
+}
+
+function bcrTogglePlay() {
+  if (bcrState.playing) {
+    bcrState.playing = false;
+    clearTimeout(bcrState.timer);
+    document.getElementById('bcr-play-btn').textContent = '▶';
+  } else {
+    // If at end, restart
+    if (bcrState.currentStep >= bcrState.steps.length - 1) {
+      bcrState.currentStep = 0;
+      bcrDomRows = {};
+      const container = document.getElementById('bcr-chart-container');
+      if (container) container.innerHTML = '';
+      renderBcrStep();
+    }
+    bcrState.playing = true;
+    document.getElementById('bcr-play-btn').textContent = '⏸';
+    bcrAutoAdvance();
+  }
+}
+
+function bcrAutoAdvance() {
+  if (!bcrState.playing) return;
+  if (bcrState.currentStep >= bcrState.steps.length - 1) {
+    bcrState.playing = false;
+    document.getElementById('bcr-play-btn').textContent = '▶';
+    return;
+  }
+  bcrState.timer = setTimeout(() => {
+    bcrState.currentStep++;
+    renderBcrStep();
+    bcrAutoAdvance();
+  }, bcrState.speed);
+}
+
+function bcrSetSpeed() {
+  bcrState.speed = parseInt(document.getElementById('bcr-speed-select').value);
+}
+
+function bcrNext() {
+  clearTimeout(bcrState.timer);
+  bcrState.playing = false;
+  document.getElementById('bcr-play-btn').textContent = '▶';
+  if (bcrState.currentStep < bcrState.steps.length - 1) {
+    bcrState.currentStep++;
+    renderBcrStep();
+  }
+}
+
+function bcrPrev() {
+  clearTimeout(bcrState.timer);
+  bcrState.playing = false;
+  document.getElementById('bcr-play-btn').textContent = '▶';
+  if (bcrState.currentStep > 0) {
+    bcrState.currentStep--;
+    renderBcrStep();
+  }
+}
+
+// BCR DOM state: map of bib → {el, barEl, badgeEl, deltaEl, timeEl, lastRank}
+let bcrDomRows = {};
+const BCR_ROW_H  = 47;   // px per row (height + gap)
+const BCR_ANIM_MS = 750; // must match CSS transition duration
+
+function renderBcrStep() {
+  const step = bcrState.steps[bcrState.currentStep];
+  if (!step) return;
+
+  const prevStep = bcrState.currentStep > 0 ? bcrState.steps[bcrState.currentStep - 1] : null;
+
+  // ── header ──
+  const pct = bcrState.steps.length > 1
+    ? Math.round((bcrState.currentStep / (bcrState.steps.length - 1)) * 100) : 100;
+  document.getElementById('bcr-progress-fill').style.width = pct + '%';
+  document.getElementById('bcr-step-info').textContent = `📍 Km ${step.cpKm} — ${step.cpName}`;
+  document.getElementById('bcr-step-sub').textContent =
+    `Point ${bcrState.currentStep + 1} / ${bcrState.steps.length} · ${step.runners.length} coureur${step.runners.length > 1 ? 's' : ''}`;
+  document.getElementById('bcr-cp-label-text').textContent = `Km ${step.cpKm} — ${step.cpName}`;
+  document.getElementById('bcr-cp-runner-count').textContent =
+    `· ${step.runners.length} coureur${step.runners.length > 1 ? 's' : ''}`;
+
+  const container = document.getElementById('bcr-chart-container');
+  if (!container) return;
+
+  // ── bar width scale ──
+  const leaderTs = step.runners[0]?.ts || 1;
+  const lastTs   = step.runners[step.runners.length - 1]?.ts || leaderTs;
+  const maxGapMs = Math.max(lastTs - leaderTs, 1);
+  const barBaseMs = maxGapMs * 1.15;
+
+  // Build lookup for prev ranks
+  const prevRankOf = {};
+  if (prevStep) prevStep.runners.forEach((r, i) => { prevRankOf[r.bib] = i; });
+
+  // Set of bibs in this step
+  const stepBibs = new Set(step.runners.map(r => r.bib));
+
+  // ── REMOVE rows no longer in top10 ──
+  Object.keys(bcrDomRows).forEach(bibStr => {
+    const bib = Number(bibStr);
+    if (!stepBibs.has(bib)) {
+      const row = bcrDomRows[bib];
+      if (row && row.el) {
+        row.el.classList.add('exiting');
+        const elToRemove = row.el;
+        setTimeout(() => { if (elToRemove.parentNode) elToRemove.parentNode.removeChild(elToRemove); }, BCR_ANIM_MS);
+      }
+      delete bcrDomRows[bib];
+    }
+  });
+
+  // ── CREATE or UPDATE rows ──
+  step.runners.forEach((runner, newRank) => {
+    const color    = getBcrColor(runner.bib);
+    const gapMs    = runner.ts - leaderTs;
+    const barPct   = Math.max(10, Math.round(100 - (gapMs / barBaseMs) * 85));
+    const rankClass = newRank === 0 ? 'r1' : newRank === 1 ? 'r2' : newRank === 2 ? 'r3' : '';
+    const medal     = newRank === 0 ? '🥇' : newRank === 1 ? '🥈' : newRank === 2 ? '🥉' : String(newRank + 1);
+
+    // Delta vs previous step
+    let deltaHtml = '–', deltaClass = 'same';
+    if (prevStep) {
+      if (prevRankOf[runner.bib] === undefined) {
+        deltaHtml = '▲'; deltaClass = 'up'; // new entrant = good
+      } else {
+        const diff = prevRankOf[runner.bib] - newRank; // positive = moved up
+        if (diff > 0)      { deltaHtml = `▲${diff}`; deltaClass = 'up'; }
+        else if (diff < 0) { deltaHtml = `▼${Math.abs(diff)}`; deltaClass = 'down'; }
+        else               { deltaHtml = '—'; deltaClass = 'same'; }
+      }
+    }
+
+    if (!bcrDomRows[runner.bib]) {
+      // ── CREATE new row ──
+      const el = document.createElement('div');
+      el.className = 'bcr-bar-row entering';
+      el.dataset.bib = runner.bib;
+      el.innerHTML = `
+        <div class="bcr-delta ${deltaClass}">${deltaHtml}</div>
+        <div class="bcr-rank-badge ${rankClass}">${medal}</div>
+        <div class="bcr-name" title="${runner.name}">${runner.name}</div>
+        <div class="bcr-bar-wrap">
+          <div class="bcr-bar" style="width:0%;background:${color};">
+            <span class="bcr-bar-time">${runner.time}</span>
+          </div>
+        </div>
+        <div class="bcr-bib">#${runner.bib}</div>`;
+      container.appendChild(el);
+
+      // Cache sub-elements
+      bcrDomRows[runner.bib] = {
+        el,
+        barEl:   el.querySelector('.bcr-bar'),
+        badgeEl: el.querySelector('.bcr-rank-badge'),
+        deltaEl: el.querySelector('.bcr-delta'),
+        timeEl:  el.querySelector('.bcr-bar-time'),
+        lastRank: newRank
+      };
+
+      // Trigger enter animation: position first (instant), then fade + bar
+      el.style.transform = `translateY(${newRank * BCR_ROW_H}px)`;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.classList.remove('entering');
+          bcrDomRows[runner.bib].barEl.style.width = barPct + '%';
+        });
+      });
+
+    } else {
+      // ── UPDATE existing row ──
+      const row = bcrDomRows[runner.bib];
+      // Animate vertical position
+      row.el.style.transform = `translateY(${newRank * BCR_ROW_H}px)`;
+      // Animate bar width
+      row.barEl.style.width = barPct + '%';
+      // Update time label
+      row.timeEl.textContent = runner.time;
+      // Update rank badge
+      row.badgeEl.className = `bcr-rank-badge ${rankClass}`;
+      row.badgeEl.textContent = medal;
+      // Update delta
+      row.deltaEl.className = `bcr-delta ${deltaClass}`;
+      row.deltaEl.textContent = deltaHtml;
+      row.lastRank = newRank;
+    }
+  });
+
+  // ── resize container to fit all rows ──
+  container.style.height = (step.runners.length * BCR_ROW_H) + 'px';
+}
+
+// ═══════════════════════════════════════════════
+//  VOICE INPUT
+// ═══════════════════════════════════════════════
+let voiceRecognition = null;
+let voiceListening = false;
+let voicePendingBib = null;
+
+function initVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.getElementById('voice-btn');
+  const status = document.getElementById('voice-status');
+  if (!SpeechRecognition) {
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '0.35';
+      btn.title = 'Reconnaissance vocale non supportée sur ce navigateur';
+    }
+    if (status) status.innerHTML = '<span style="color:var(--text3);font-size:11px;">🚫 Micro non supporté (Chrome recommandé)</span>';
+    return;
+  }
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'fr-FR';
+  voiceRecognition.interimResults = false;
+  voiceRecognition.maxAlternatives = 5;
+  voiceRecognition.continuous = false;
+
+  voiceRecognition.onstart = () => {
+    voiceListening = true;
+    setVoiceState('listening');
+  };
+
+  voiceRecognition.onresult = (e) => {
+    // Try all alternatives to find a number
+    let detected = null;
+    for (let i = 0; i < e.results[0].length; i++) {
+      const transcript = e.results[0][i].transcript.trim();
+      const num = parseVoiceNumber(transcript);
+      if (num) { detected = num; break; }
+    }
+    stopVoiceListening();
+    if (detected) {
+      showVoicePreview(detected);
+    } else {
+      setVoiceState('idle');
+      setVoiceStatus('⚠️ Dossard non reconnu — réessayez', 'listening');
+      setTimeout(() => setVoiceStatus('Appuyez sur 🎤 pour dicter le dossard', ''), 2500);
+    }
+  };
+
+  voiceRecognition.onerror = (e) => {
+    stopVoiceListening();
+    const msgs = {
+      'not-allowed': '🚫 Micro refusé — autorisez l\'accès dans le navigateur',
+      'no-speech': '🔇 Rien entendu — réessayez',
+      'network': '📡 Erreur réseau',
+      'aborted': ''
+    };
+    const msg = msgs[e.error] || `Erreur : ${e.error}`;
+    if (msg) {
+      setVoiceStatus(msg, 'listening');
+      setTimeout(() => setVoiceStatus('Appuyez sur 🎤 pour dicter le dossard', ''), 3000);
+    }
+  };
+
+  voiceRecognition.onend = () => {
+    if (voiceListening) stopVoiceListening();
+  };
+}
+
+function parseVoiceNumber(transcript) {
+  // Direct digits
+  const directMatch = transcript.replace(/\s/g, '').match(/^\d{1,4}$/);
+  if (directMatch) return parseInt(directMatch[0]);
+
+  // Written French numbers → digits
+  const wordMap = {
+    'zéro':0,'zero':0,'un':1,'une':1,'deux':2,'trois':3,'quatre':4,'cinq':5,
+    'six':6,'sept':7,'huit':8,'neuf':9,'dix':10,'onze':11,'douze':12,
+    'treize':13,'quatorze':14,'quinze':15,'seize':16,'dix-sept':17,'dix sept':17,
+    'dix-huit':18,'dix huit':18,'dix-neuf':19,'dix neuf':19,
+    'vingt':20,'trente':30,'quarante':40,'cinquante':50,
+    'soixante':60,'soixante-dix':70,'soixante dix':70,
+    'quatre-vingt':80,'quatre vingt':80,'quatre-vingt-dix':90,'quatre vingt dix':90,
+    'cent':100,'mille':1000
+  };
+  // Try to parse as a sequence of digits spoken individually: "trois cinq deux" → 352
+  const words = transcript.toLowerCase().split(/[\s-]+/);
+  let digits = '';
+  let allMapped = true;
+  for (const w of words) {
+    if (wordMap[w] !== undefined && wordMap[w] <= 9) {
+      digits += wordMap[w];
+    } else if (/^\d+$/.test(w)) {
+      digits += w;
+    } else {
+      allMapped = false; break;
+    }
+  }
+  if (allMapped && digits.length > 0 && digits.length <= 4) return parseInt(digits);
+
+  // Try full number: "cent vingt trois" → 123
+  let val = 0, cur = 0;
+  let parsed = true;
+  for (const w of words) {
+    const n = wordMap[w];
+    if (n === undefined) { if (!/^et$/.test(w)) { parsed = false; break; } continue; }
+    if (n === 1000) { val = (val + cur) * n; cur = 0; }
+    else if (n === 100) { cur = (cur || 1) * n; }
+    else { cur += n; }
+  }
+  val += cur;
+  if (parsed && val > 0 && val <= 9999) return val;
+
+  // Extract any number from mixed string
+  const anyNum = transcript.match(/\d{1,4}/);
+  if (anyNum) return parseInt(anyNum[0]);
+
+  return null;
+}
+
+function toggleVoice() {
+  if (voiceListening) {
+    stopVoiceListening();
+    return;
+  }
+  if (!voiceRecognition) { initVoice(); }
+  if (!voiceRecognition) return;
+
+  // Hide preview if shown
+  voiceCancel(true);
+  document.getElementById('bib-input').value = '';
+
+  try {
+    voiceRecognition.start();
+  } catch(e) {
+    // already started or other error — re-init
+    try { voiceRecognition.stop(); } catch(e2){}
+    setTimeout(() => { try { voiceRecognition.start(); } catch(e3){} }, 200);
+  }
+}
+
+function stopVoiceListening() {
+  voiceListening = false;
+  try { if (voiceRecognition) voiceRecognition.stop(); } catch(e){}
+  setVoiceState('idle');
+}
+
+function setVoiceState(state) {
+  const btn = document.getElementById('voice-btn');
+  const waves = document.getElementById('voice-waves');
+  if (!btn) return;
+  btn.classList.remove('listening', 'confirming');
+  waves && waves.classList.remove('active');
+  if (state === 'listening') {
+    btn.classList.add('listening');
+    btn.textContent = '⏹';
+    waves && waves.classList.add('active');
+    setVoiceStatus('🔴 Écoute en cours… dites le numéro', 'listening');
+  } else if (state === 'confirming') {
+    btn.classList.add('confirming');
+    btn.textContent = '🎤';
+  } else {
+    btn.textContent = '🎤';
+    setVoiceStatus('Appuyez sur 🎤 pour dicter le dossard', '');
+  }
+}
+
+function setVoiceStatus(msg, cls) {
+  const el = document.getElementById('voice-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'voice-status' + (cls ? ' ' + cls : '');
+}
+
+function showVoicePreview(bib) {
+  voicePendingBib = bib;
+  const preview = document.getElementById('voice-preview');
+  const bibEl = document.getElementById('voice-preview-bib');
+  const nameEl = document.getElementById('voice-preview-name');
+  bibEl.textContent = bib;
+  const name = getRunnerName(bib);
+  nameEl.textContent = name ? `👤 ${name}` : '(coureur non répertorié)';
+  nameEl.style.color = name ? 'var(--text2)' : 'var(--text3)';
+  preview.classList.add('show');
+  setVoiceState('confirming');
+  setVoiceStatus('✋ Confirmez ou annulez le dossard reconnu', 'confirming');
+  // Also put value in input field for visual feedback
+  document.getElementById('bib-input').value = bib;
+  // Focus confirm button
+  setTimeout(() => { const btn = preview.querySelector('.voice-confirm-btn.yes'); if(btn) btn.focus(); }, 50);
+}
+
+function voiceConfirm() {
+  if (!voicePendingBib) return;
+  document.getElementById('bib-input').value = voicePendingBib;
+  voicePendingBib = null;
+  document.getElementById('voice-preview').classList.remove('show');
+  setVoiceState('idle');
+  recordBib();
+}
+
+function voiceCancel(silent) {
+  voicePendingBib = null;
+  const preview = document.getElementById('voice-preview');
+  if (preview) preview.classList.remove('show');
+  if (!silent) {
+    document.getElementById('bib-input').value = '';
+    setVoiceState('idle');
+    document.getElementById('bib-input').focus();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  MODULE BÉNÉVOLES — missions, inscriptions, pointage
+// ═══════════════════════════════════════════════
+let activeVolTab = 'missions';
+
+function switchVolTab(name) {
+  activeVolTab = name;
+  document.querySelectorAll('.vol-sub-tab').forEach(t => t.classList.toggle('active', t.dataset.vtab === name));
+  document.querySelectorAll('.vol-sub-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('vtab-' + name);
+  if (panel) panel.classList.add('active');
+  if (name === 'liste') renderVolunteerList();
+  if (name === 'missions') renderMissionList();
+}
+
+function genId(prefix) {
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ── MISSIONS ──────────────────────────────────────
+function addMission() {
+  const name = document.getElementById('mission-name').value.trim();
+  const needed = parseInt(document.getElementById('mission-needed').value) || 1;
+  const start = document.getElementById('mission-start').value;
+  const end = document.getElementById('mission-end').value;
+  if (!name) { alert('Indiquez un nom de mission.'); return; }
+  if (!state.missions) state.missions = {};
+  const id = genId('mis');
+  state.missions[id] = { name, needed, start: start || '', end: end || '' };
+  saveState();
+  document.getElementById('mission-name').value = '';
+  document.getElementById('mission-needed').value = '';
+  document.getElementById('mission-start').value = '';
+  document.getElementById('mission-end').value = '';
+  renderMissionList(); updateVolMissionSelects();
+}
+
+function deleteMission(id) {
+  if (!confirm('Supprimer cette mission ? Les bénévoles affectés resteront inscrits mais sans mission.')) return;
+  delete state.missions[id];
+  // Unassign volunteers from this mission
+  Object.values(state.volunteers || {}).forEach(v => { if (v.missionId === id) v.missionId = ''; });
+  saveState();
+  renderMissionList(); renderVolunteerList(); updateVolMissionSelects();
+}
+
+function renderMissionList() {
+  const el = document.getElementById('mission-list');
+  if (!el) return;
+  const missions = state.missions || {};
+  const ids = Object.keys(missions);
+  if (!ids.length) {
+    el.innerHTML = '<div class="vol-empty"><div class="vol-empty-icon">📋</div>Aucune mission créée.</div>';
+    return;
+  }
+  const volunteers = Object.values(state.volunteers || {});
+  el.innerHTML = ids.map(id => {
+    const m = missions[id];
+    const assigned = volunteers.filter(v => v.missionId === id).length;
+    const pct = m.needed > 0 ? Math.min(100, Math.round((assigned / m.needed) * 100)) : 0;
+    const fillClass = pct >= 100 ? 'ok' : pct >= 50 ? 'warn' : 'danger';
+    const time = (m.start || m.end) ? `${m.start || '?'} – ${m.end || '?'}` : '';
+    return `<div class="vol-mission-row">
+      <div class="vol-mission-name">${m.name}</div>
+      <div class="vol-mission-meta">${time}</div>
+      <div class="vol-mission-meta">${assigned}/${m.needed}</div>
+      <div class="vol-mission-fill-bar"><div class="vol-mission-fill-inner ${fillClass}" style="width:${pct}%"></div></div>
+      <button class="vol-check-btn" onclick="deleteMission('${id}')" title="Supprimer">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function updateVolMissionSelects() {
+  const missions = state.missions || {};
+  const opts = Object.entries(missions).map(([id, m]) => `<option value="${id}">${m.name}</option>`).join('');
+  const newSel = document.getElementById('vol-new-mission');
+  if (newSel) newSel.innerHTML = '<option value="">— Mission (optionnel) —</option>' + opts;
+  const filterSel = document.getElementById('vol-filter-mission');
+  if (filterSel) {
+    const current = filterSel.value;
+    filterSel.innerHTML = '<option value="all">Toutes missions</option>' + opts;
+    filterSel.value = current && missions[current] ? current : 'all';
+  }
+}
+
+// ── INSCRIPTION BÉNÉVOLE ──────────────────────────
+function addVolunteer() {
+  const name = document.getElementById('vol-new-name').value.trim();
+  const phone = document.getElementById('vol-new-phone').value.trim();
+  const email = document.getElementById('vol-new-email').value.trim();
+  const missionId = document.getElementById('vol-new-mission').value;
+  const status = document.getElementById('vol-new-status').value;
+  const consent = document.getElementById('vol-new-consent').checked;
+  const msgEl = document.getElementById('vol-new-msg');
+
+  if (!name) { msgEl.textContent = '⚠️ Le nom est obligatoire.'; msgEl.style.color = 'var(--error)'; return; }
+  if (!consent) { msgEl.textContent = '⚠️ Le consentement RGPD doit être confirmé avant inscription.'; msgEl.style.color = 'var(--error)'; return; }
+
+  if (!state.volunteers) state.volunteers = {};
+  const id = genId('vol');
+  state.volunteers[id] = {
+    name, phone, email,
+    missionId: missionId || '',
+    status: status || 'pending',
+    present: null, // null=non pointé, true=présent, false=absent
+    consentAt: new Date().toISOString(),
+    registeredAt: new Date().toISOString()
+  };
+  saveState();
+
+  document.getElementById('vol-new-name').value = '';
+  document.getElementById('vol-new-phone').value = '';
+  document.getElementById('vol-new-email').value = '';
+  document.getElementById('vol-new-mission').value = '';
+  document.getElementById('vol-new-status').value = 'pending';
+  document.getElementById('vol-new-consent').checked = false;
+
+  msgEl.style.color = 'var(--success)';
+  msgEl.textContent = `✓ ${name} a été inscrit(e).`;
+  renderMissionList(); renderVolunteerList(); updateVolunteerStats();
+}
+
+// ── LISTE & POINTAGE ──────────────────────────────
+function renderVolunteerList() {
+  const el = document.getElementById('vol-list');
+  if (!el) return;
+  const statusFilter = (document.getElementById('vol-filter-status') || {}).value || 'all';
+  const missionFilter = (document.getElementById('vol-filter-mission') || {}).value || 'all';
+  const search = ((document.getElementById('vol-search') || {}).value || '').trim().toLowerCase();
+  const missions = state.missions || {};
+
+  let entries = Object.entries(state.volunteers || {});
+  if (statusFilter !== 'all') entries = entries.filter(([,v]) => v.status === statusFilter);
+  if (missionFilter !== 'all') entries = entries.filter(([,v]) => v.missionId === missionFilter);
+  if (search) entries = entries.filter(([,v]) => (v.name||'').toLowerCase().includes(search) || (v.phone||'').includes(search));
+
+  entries.sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
+
+  if (!entries.length) {
+    el.innerHTML = '<div class="vol-empty"><div class="vol-empty-icon">👥</div>Aucun bénévole ne correspond à ce filtre.</div>';
+    return;
+  }
+
+  el.innerHTML = entries.map(([id, v]) => {
+    const initials = (v.name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const missionName = v.missionId && missions[v.missionId] ? missions[v.missionId].name : '<span style="color:var(--text3);">Non affecté</span>';
+    const statusLabels = { pending: 'En attente', validated: 'Validé', assigned: 'Affecté' };
+    const presentClass = v.present === true ? 'active-in' : '';
+    const absentClass = v.present === false ? 'active-absent' : '';
+    return `<div class="vol-list-row">
+      <div class="vol-avatar">${initials}</div>
+      <div class="vol-name-block">
+        <div class="vol-name">${v.name}</div>
+        <div class="vol-contact">${v.phone || ''}${v.phone && v.email ? ' · ' : ''}${v.email || ''}</div>
+        <div class="vol-contact">${missionName}</div>
+      </div>
+      <span class="vol-status-pill ${v.status}">${statusLabels[v.status]||v.status}</span>
+      <div class="vol-check-row">
+        <button class="vol-check-btn ${presentClass}" title="Marquer présent" onclick="setVolunteerPresence('${id}', true)">✓</button>
+        <button class="vol-check-btn ${absentClass}" title="Marquer absent" onclick="setVolunteerPresence('${id}', false)">✕</button>
+      </div>
+      <select class="form-input" style="width:auto;font-size:11px;padding:6px 8px;" onchange="changeVolunteerStatus('${id}', this.value)">
+        <option value="pending" ${v.status==='pending'?'selected':''}>En attente</option>
+        <option value="validated" ${v.status==='validated'?'selected':''}>Validé</option>
+        <option value="assigned" ${v.status==='assigned'?'selected':''}>Affecté</option>
+      </select>
+      <button class="vol-check-btn" title="Supprimer définitivement (RGPD)" onclick="deleteVolunteer('${id}')">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+function setVolunteerPresence(id, present) {
+  if (!state.volunteers[id]) return;
+  state.volunteers[id].present = state.volunteers[id].present === present ? null : present;
+  saveState();
+  renderVolunteerList(); updateVolunteerStats();
+}
+
+function changeVolunteerStatus(id, status) {
+  if (!state.volunteers[id]) return;
+  state.volunteers[id].status = status;
+  saveState();
+  updateVolunteerStats();
+}
+
+function deleteVolunteer(id) {
+  const v = state.volunteers[id];
+  if (!v) return;
+  if (!confirm(`Supprimer définitivement ${v.name} ? Cette action est irréversible (droit à l'effacement RGPD).`)) return;
+  delete state.volunteers[id];
+  saveState();
+  renderVolunteerList(); renderMissionList(); updateVolunteerStats();
+}
+
+function updateVolunteerStats() {
+  const vols = Object.values(state.volunteers || {});
+  const total = vols.length;
+  const validated = vols.filter(v => v.status === 'validated' || v.status === 'assigned').length;
+  const assigned = vols.filter(v => v.missionId).length;
+  const present = vols.filter(v => v.present === true).length;
+  const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  set('vol-stat-total', total);
+  set('vol-stat-validated', validated);
+  set('vol-stat-assigned', assigned);
+  set('vol-stat-present', present);
+}
+
+function exportVolunteersCSV() {
+  const missions = state.missions || {};
+  const vols = Object.values(state.volunteers || {});
+  let csv = 'Nom,Telephone,Email,Mission,Statut,Présence,Date inscription\n';
+  vols.forEach(v => {
+    const missionName = v.missionId && missions[v.missionId] ? missions[v.missionId].name : '';
+    const presence = v.present === true ? 'Présent' : v.present === false ? 'Absent' : 'Non pointé';
+    csv += `"${v.name}","${v.phone||''}","${v.email||''}","${missionName}","${v.status}","${presence}","${(v.registeredAt||'').slice(0,10)}"\n`;
+  });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.raceName || 'course').replace(/\s+/g, '_') + '_benevoles.csv';
+  a.click();
+}
+
+// ═══════════════════════════════════════════════
+//  RGPD — bannière, politique, droits, effacement
+// ═══════════════════════════════════════════════
+function getRgpdConsentKey() {
+  return 'rgpd_consent_' + (state.raceName || 'default').replace(/\s+/g, '_').toLowerCase();
+}
+
+function maybeShowRgpdBanner() {
+  try {
+    if (localStorage.getItem(getRgpdConsentKey())) return; // already acknowledged
+  } catch(e) {}
+  // Only show to roles that actually handle personal data
+  if (currentRole === 'benevole' || currentRole === 'admin') {
+    document.getElementById('rgpd-banner').classList.add('open');
+  }
+}
+
+function acceptRgpdBanner() {
+  try { localStorage.setItem(getRgpdConsentKey(), new Date().toISOString()); } catch(e){}
+  document.getElementById('rgpd-banner').classList.remove('open');
+}
+
+function dismissRgpdBanner() {
+  document.getElementById('rgpd-banner').classList.remove('open');
+}
+
+const RGPD_POLICY_HTML = `
+  <p><strong>Données collectées</strong></p>
+  <p>Pour les coureurs : numéro de dossard, nom (optionnel), format de course, heures de passage aux points de contrôle.</p>
+  <p>Pour les bénévoles : nom, téléphone, email, mission assignée, statut de présence.</p>
+  <p style="margin-top:10px;"><strong>Finalité</strong></p>
+  <p>Ces données sont utilisées exclusivement pour l'organisation et le suivi en direct de l'événement sportif (classement, sécurité, coordination des équipes).</p>
+  <p style="margin-top:10px;"><strong>Base légale</strong></p>
+  <p>Exécution d'un engagement pris envers les participants/bénévoles (inscription à l'événement) et intérêt légitime de l'organisateur à assurer le bon déroulement de la course.</p>
+  <p style="margin-top:10px;"><strong>Conservation</strong></p>
+  <p>Les données nominatives sont conservées au maximum 12 mois après l'événement, puis supprimées ou anonymisées. Les temps de passage peuvent être conservés de façon anonyme à des fins statistiques.</p>
+  <p style="margin-top:10px;"><strong>Destinataires</strong></p>
+  <p>Seuls l'organisateur et les bénévoles habilités (rôle "Admin" ou "Pointage") ont accès aux données. Aucune donnée n'est cédée à des tiers à des fins commerciales.</p>
+  <p style="margin-top:10px;"><strong>Sécurité</strong></p>
+  <p>Les codes d'accès bénévole/admin sont stockés sous forme hashée (SHA-256), jamais en clair. L'accès au classement public ne nécessite aucune donnée personnelle.</p>
+  <p style="margin-top:10px;"><strong>Vos droits</strong></p>
+  <p>Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et d'effacement de vos données. Contactez l'organisateur de l'événement, ou utilisez l'outil d'effacement disponible dans l'onglet Admin.</p>
+`;
+
+const RGPD_RIGHTS_HTML = `
+  <p>Pour exercer vos droits sur les données vous concernant (coureur ou bénévole), vous pouvez :</p>
+  <p style="margin-top:10px;">📧 <strong>Contacter l'organisateur</strong> de l'événement directement — il est responsable du traitement de vos données et peut répondre à votre demande sous 30 jours.</p>
+  <p style="margin-top:10px;">🗑️ <strong>Demander l'effacement</strong> : l'organisateur peut supprimer définitivement votre nom et vos coordonnées via l'onglet Admin → Confidentialité &amp; RGPD, tout en conservant si besoin un enregistrement anonymisé de vos temps de passage.</p>
+  <p style="margin-top:10px;">📋 <strong>Demander une copie</strong> de vos données : l'organisateur peut exporter votre fiche via les outils d'export CSV disponibles dans l'application.</p>
+  <p style="margin-top:14px;font-size:11px;color:var(--text3);">Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire une réclamation auprès de la CNIL (www.cnil.fr).</p>
+`;
+
+function openRgpdModal(type) {
+  document.getElementById('rgpd-modal-title').textContent = type === 'rights' ? '👤 Vos droits sur vos données' : '🛡️ Politique de confidentialité';
+  document.getElementById('rgpd-modal-body').innerHTML = type === 'rights' ? RGPD_RIGHTS_HTML : RGPD_POLICY_HTML;
+  document.getElementById('rgpd-modal-overlay').classList.add('open');
+}
+
+function closeRgpdModal(e) {
+  if (!e || e.target === document.getElementById('rgpd-modal-overlay')) {
+    document.getElementById('rgpd-modal-overlay').classList.remove('open');
+  }
+}
+
+// Right to erasure: removes nominative data for a runner (name) while keeping
+// the anonymized bib number and checkpoint times for race statistics.
+function eraseRunnerData() {
+  const bibInput = document.getElementById('erase-bib-input');
+  const msgEl = document.getElementById('erase-msg');
+  const bib = parseInt(bibInput.value);
+  if (!bib) { msgEl.style.color = 'var(--error)'; msgEl.textContent = '⚠️ Indiquez un numéro de dossard valide.'; return; }
+  if (!state.runners || !state.runners[bib]) {
+    msgEl.style.color = 'var(--error)';
+    msgEl.textContent = `⚠️ Aucune donnée nominative trouvée pour le dossard ${bib}.`;
+    return;
+  }
+  if (!confirm(`Effacer définitivement le nom associé au dossard ${bib} ? Les temps de passage seront conservés de façon anonyme.`)) return;
+  delete state.runners[bib];
+  saveState();
+  bibInput.value = '';
+  msgEl.style.color = 'var(--success)';
+  msgEl.textContent = `✓ Données nominatives du dossard ${bib} effacées. Les temps de passage restent disponibles de façon anonyme.`;
+  renderRanking(); renderRunnerNameList();
+}
+
+// ═══════════════════════════════════════════════
+//  FAVORITES
+// ═══════════════════════════════════════════════
+function getFavKey() {
+  // Key is per race name so favorites are isolated between events
+  const name = (state.raceName || 'default').replace(/\s+/g, '_').toLowerCase();
+  return 'favs_' + name;
+}
+
+function loadFavorites() {
+  try {
+    const raw = localStorage.getItem(getFavKey());
+    favoriteBibs = raw ? new Set(JSON.parse(raw).map(Number)) : new Set();
+  } catch(e) { favoriteBibs = new Set(); }
+  updateFavUI();
+}
+
+function saveFavorites() {
+  try {
+    localStorage.setItem(getFavKey(), JSON.stringify([...favoriteBibs]));
+  } catch(e){}
+  updateFavUI();
+}
+
+function toggleFavorite(bib) {
+  if (favoriteBibs.has(bib)) {
+    favoriteBibs.delete(bib);
+  } else {
+    favoriteBibs.add(bib);
+  }
+  saveFavorites();
+  // Update only the star in the row without full re-render for smoothness
+  const stars = document.querySelectorAll(`.fav-star[onclick*="toggleFavorite(${bib})"]`);
+  stars.forEach(s => {
+    s.classList.toggle('active', favoriteBibs.has(bib));
+    s.title = favoriteBibs.has(bib) ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  });
+  // If we're in favs-only mode and just removed one, re-render
+  if (showOnlyFavs && !favoriteBibs.has(bib)) renderRanking();
+}
+
+function toggleFavFilter() {
+  showOnlyFavs = !showOnlyFavs;
+  const btn = document.getElementById('fav-filter-btn');
+  if (btn) btn.classList.toggle('active', showOnlyFavs);
+  renderRanking();
+}
+
+function updateFavUI() {
+  const count = favoriteBibs.size;
+  const badge = document.getElementById('fav-count-badge');
+  if (badge) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+  const btn = document.getElementById('fav-filter-btn');
+  if (btn) btn.classList.toggle('active', showOnlyFavs);
+}
+
+// ═══════════════════════════════════════════════
+//  MODE DÉMO — données d'exemple
+// ═══════════════════════════════════════════════
+async function loadDemoData() {
+  const msgEl = document.getElementById('demo-msg');
+  if (!confirm('Remplacer toutes les données actuelles par le jeu de données de démo ? Cette action écrase la course en cours.')) return;
+
+  const now = new Date();
+  const raceDate = now.toISOString().slice(0,10);
+
+  const cpDefs = [
+    { km: 5,  name: 'Ravitaillement 1' },
+    { km: 10, name: 'Point de contrôle' },
+    { km: 15, name: 'Ravitaillement 2' },
+    { km: 21, name: 'Arrivée' },
+  ];
+  const checkpoints = cpDefs.map((c, i) => ({ id: 'cp_demo_' + i, km: c.km, name: c.name }));
+
+  const formats = [
+    { code: '10K', label: '10 km', color: '#3B82F6' },
+    { code: '21K', label: 'Semi-marathon', color: 'var(--primary)' },
+  ];
+
+  const firstNames = ['Léa','Hugo','Camille','Nathan','Sarah','Maxime','Inès','Lucas','Chloé','Tom','Emma','Louis','Manon','Paul','Julie','Adam','Anna','Théo','Zoé','Noé'];
+  const lastNames = ['Martin','Bernard','Dubois','Robert','Petit','Durand','Leroy','Moreau','Simon','Laurent','Lefebvre','Michel','Garcia','David','Bertrand'];
+
+  const runners = {};
+  const passages = {};
+  let bib = 1;
+  for (let i = 0; i < 24; i++) {
+    const fmt = i % 3 === 0 ? '10K' : '21K';
+    const name = firstNames[i % firstNames.length] + ' ' + lastNames[(i*3) % lastNames.length];
+    runners[bib] = { name, format: fmt };
+
+    const baseStart = new Date(now); baseStart.setHours(9,0,0,0);
+    const cpForFormat = fmt === '10K' ? checkpoints.slice(0,2) : checkpoints;
+    passages[bib] = {};
+    // Realistic generator: pace between 4:30 and 7:00 /km, some haven't finished yet
+    const paceSecPerKm = 270 + Math.random() * 150;
+    const finishedUpTo = Math.random() < 0.8 ? cpForFormat.length : Math.floor(Math.random() * cpForFormat.length);
+    cpForFormat.forEach((cp, idx) => {
+      if (idx >= finishedUpTo) return;
+      const elapsedSec = cp.km * paceSecPerKm;
+      const t = new Date(baseStart.getTime() + elapsedSec * 1000);
+      passages[bib][cp.id] = { time: t.toTimeString().slice(0,8), ts: t.getTime() };
+    });
+    bib++;
+  }
+
+  const missions = {
+    mis_demo_1: { name: 'Ravitaillement Km 5', needed: 4, start: '08:30', end: '12:00' },
+    mis_demo_2: { name: 'Signaleur Km 10',     needed: 2, start: '08:30', end: '11:30' },
+    mis_demo_3: { name: 'Accueil / Retrait dossards', needed: 3, start: '07:30', end: '09:30' },
+    mis_demo_4: { name: 'Arrivée — Médailles', needed: 3, start: '09:30', end: '13:00' },
+  };
+
+  const volFirst = ['Marie','Antoine','Sophie','Karim','Julien','Laura','Yann','Coralie'];
+  const volunteers = {};
+  volFirst.forEach((fn, i) => {
+    const missionIds = Object.keys(missions);
+    volunteers['vol_demo_' + i] = {
+      name: fn + ' ' + lastNames[(i*5) % lastNames.length],
+      phone: '06' + String(10000000 + i*1111111).slice(0,8),
+      email: fn.toLowerCase() + '.demo@example.com',
+      missionId: i < missionIds.length ? missionIds[i % missionIds.length] : '',
+      status: i % 3 === 0 ? 'pending' : (i % 3 === 1 ? 'validated' : 'assigned'),
+      present: i < 3 ? true : (i === 3 ? false : null),
+      consentAt: new Date().toISOString(),
+      registeredAt: new Date().toISOString()
+    };
+  });
+
+  state = {
+    raceName: 'Trail des Collines (Démo)',
+    raceDate,
+    checkpoints,
+    passages,
+    runners,
+    passwords: { benevole: '', admin: '' },
+    passwordHashes: {
+      benevole: await hashCode('demo', 'Trail des Collines (Démo)'),
+      admin: await hashCode('demo', 'Trail des Collines (Démo)')
+    },
+    formats,
+    mapImage: null,
+    missions,
+    volunteers
+  };
+
+  saveState();
+  applyState();
+  if (msgEl) { msgEl.style.color = 'var(--success)'; msgEl.textContent = '✓ Données de démo chargées. Codes d\'accès démo : "demo" pour Pointage et Admin.'; }
+}
+
+async function wipeAllData() {
+  if (!confirm('Tout effacer définitivement (course, coureurs, bénévoles, codes) ? Cette action est irréversible.')) return;
+  state = {
+    raceName: '', raceDate: '',
+    checkpoints: [], passages: {}, runners: {},
+    passwords: { benevole: '', admin: '' },
+    passwordHashes: { benevole: '', admin: '' },
+    formats: [], mapImage: null,
+    missions: {}, volunteers: {}
+  };
+  saveState();
+  applyState();
+  const msgEl = document.getElementById('demo-msg');
+  if (msgEl) { msgEl.style.color = 'var(--text2)'; msgEl.textContent = '✓ Toutes les données ont été effacées.'; }
+}
+
+// ───────────────────────────────────────────────
+tryAutoConnect();
+</script>
+</body>
+</html>
